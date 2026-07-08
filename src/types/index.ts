@@ -150,6 +150,44 @@ export interface EventRow {
   created_at: string;
 }
 
+// ── Services / Visa ─────────────────────────────────────────────────
+
+export interface ServiceMenuItem {
+  label: string;
+  href: string;
+  description?: string;
+  children?: ServiceMenuItem[];
+}
+
+export interface VisaType {
+  id: string;
+  name: string;
+  description: string;
+  icon: string; // lucide icon name
+}
+
+export interface VisaProcessStep {
+  step: number;
+  title: string;
+  description: string;
+}
+
+export interface DocumentRequirement {
+  category: string;
+  items: string[];
+}
+
+export interface PricingItem {
+  service: string;
+  price: string;
+  note?: string;
+}
+
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
+
 export interface SchoolRow {
   id: string;
   name: string;

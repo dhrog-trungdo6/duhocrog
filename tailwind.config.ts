@@ -14,6 +14,11 @@ const config: Config = {
           DEFAULT: "#DC2626",
           dark: "#B91C1C",
         },
+        "accent-orange": {
+          DEFAULT: "#FF6B00",
+          light: "#FF8C33",
+          dark: "#E05E00",
+        },
         navy: "#0B2545",
       },
       fontFamily: {
