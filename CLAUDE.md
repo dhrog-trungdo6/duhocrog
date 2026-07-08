@@ -138,10 +138,11 @@ LeadFormData = { fullName: string; phone: string; country: string }
 ## Hạ tầng & Tích hợp bên ngoài
 
 ```
-GitHub  : https://github.com/dhrog-trungdo6/duhocrog.git (branch: main)
-          ⚠️ PUSH BỊ 403 — keychain máy lưu account `trungdotest8`, repo thuộc `dhrog-trungdo6`
-          → Fix: thêm trungdotest8 làm collaborator HOẶC gh auth login account dhrog-trungdo6
-Vercel  : ❌ CHƯA import — làm sau khi push thành công
+GitHub  : https://github.com/dhrog-trungdo6/duhocrog.git (branch: main) ✅ ĐÃ PUSH
+          gh CLI đăng nhập account `dhrog-trungdo6` (device flow, 2026-07-08)
+          Push dùng: git -c credential.helper='!gh auth git-credential' push
+          (keychain osxkeychain vẫn lưu `trungdotest8` cho dự án Nam Ngân — KHÔNG xóa)
+Vercel  : ❌ CHƯA import — vercel.com → Add New Project → Import dhrog-trungdo6/duhocrog
 Supabase: ❌ CHƯA có project — cần tạo rồi chạy migration 20260708000001_initial_schema.sql
 Resend  : ❌ chưa dùng (TODO luồng kép notification)
 ```
@@ -209,15 +210,14 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 | EventsTabs | ✅ v1.0.0 | empty state đúng mẫu thinkEDU |
 | Lead Capture API | ✅ v1.0.0 | `/api/leads` — đã test 400/503; chưa test 201 (thiếu env) |
 | Supabase schema | ✅ SQL sẵn sàng | ⚠️ chưa apply (chưa có project cloud) |
-| GitHub push | ⚠️ BLOCKED 403 | commit local sẵn trên `main` |
+| GitHub push | ✅ DONE | `main` đã lên origin (2 commits: 402bf77 + fa98209) |
 
 ### Next Steps (làm ngay khi mở phiên mới)
 
-1. **Push GitHub** — sau khi user cấp quyền `trungdotest8` vào repo `dhrog-trungdo6/duhocrog` → `git push -u origin main`
-2. **Tạo Supabase project + apply migration** → điền 3 env vào `.env.local`, test POST /api/leads trả 201
-3. **Import Vercel** từ repo + set 3 env Supabase
-4. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` (hotline, email, địa chỉ, social, domain)
-5. Thay ảnh placeholder: hero banner, ảnh quốc gia hexagon, logo trường, ảnh minh chứng visa
+1. **Tạo Supabase project + apply migration** `20260708000001_initial_schema.sql` → điền 3 env vào `.env.local`, test POST /api/leads trả 201
+2. **Import Vercel** từ repo `dhrog-trungdo6/duhocrog` + set 3 env Supabase
+3. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` (hotline, email, địa chỉ, social, domain)
+4. Thay ảnh placeholder: hero banner, ảnh quốc gia hexagon, logo trường, ảnh minh chứng visa
 
 ### Change Log
 
