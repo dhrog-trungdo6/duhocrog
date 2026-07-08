@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GraduationCap, Percent, Search, SearchX } from "lucide-react";
 import type { School, StudyLevel } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
-import { schools } from "@/data/schools";
+import { schools as mockSchools } from "@/data/schools";
 import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
 
@@ -37,6 +37,23 @@ export function SchoolFinder() {
     TUITION_MAX,
   ]);
   const [results, setResults] = useState<School[] | null>(null);
+  // Data: ưu tiên bảng `schools` Supabase (CMS quản lý) → fallback mock khi DB trống/lỗi
+  const schoolsRef = useRef<School[]>(mockSchools);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch("/api/schools", { signal: controller.signal });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { schools: School[] };
+        if (payload.schools.length > 0) schoolsRef.current = payload.schools;
+      } catch {
+        // giữ mock — không crash section khi lỗi mạng
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   // Cascading select: chỉ derive tỉnh bang của quốc gia đang chọn
   const provinceOptions = useMemo(
@@ -51,7 +68,7 @@ export function SchoolFinder() {
 
   const handleSearch = () => {
     const [minTuition, maxTuition] = tuitionRange;
-    const matched = schools
+    const matched = schoolsRef.current
       .filter(
         (s) =>
           (!country || s.country === country) &&

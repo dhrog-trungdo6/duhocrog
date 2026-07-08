@@ -29,10 +29,10 @@ Spec gốc: file prompt `CLAUDE (1).md` (Senior Frontend Engineer — Homepage).
 | Styling | Tailwind CSS v3 — KHÔNG dùng MUI / Ant Design |
 | Form | react-hook-form + Zod — BẮT BUỘC với mọi form và API route |
 | UI primitives | @radix-ui/react-slider (dual-handle), lucide-react icons |
-| Database | Supabase (PostgreSQL + RLS) — ⚠️ CHƯA có project cloud, code đã sẵn sàng |
+| Database | Supabase (PostgreSQL + RLS) — ✅ ĐÃ kết nối, env trong `.env.local` |
 | Font | Be Vietnam Pro (next/font) |
 | Package manager | pnpm |
-| Deploy | Vercel (import từ GitHub) — ⚠️ CHƯA kết nối |
+| Deploy | Vercel — ✅ ĐÃ link repo (`.vercel/repo.json`) |
 
 > **KHÔNG dùng Zustand/MongoDB.** User từng gửi chuỗi `mongodb+srv://...` gọi nhầm là "Supabase" —
 > đã thống nhất dùng Supabase PostgreSQL. Nếu user nhắc lại MongoDB → giải thích lại.
@@ -108,7 +108,7 @@ LeadFormData = { fullName: string; phone: string; country: string }
 |----------|----------------|---------|
 | `leads` | `LeadFormData` (+ server fields) | RLS: KHÔNG policy anon — chỉ service role |
 | `events` | `EventItem` | RLS: public read `is_active = true` |
-| `schools` | `School` | RLS: public read `is_active = true`; FE đang dùng mock |
+| `schools` | `School` | RLS: public read `is_active = true`; FE fetch `/api/schools`, fallback mock |
 
 ---
 
@@ -131,7 +131,18 @@ LeadFormData = { fullName: string; phone: string; country: string }
 
 | Route | Method | Trạng thái | Ghi chú |
 |-------|--------|-----------|---------|
-| `/api/leads` | POST | ✅ v1.0.0 | Zod + honeypot `website_hp`; 400 chi tiết lỗi; **503 khi thiếu env Supabase**; 201 trả `{id}` |
+| `/api/leads` | POST | ✅ v1.0.0 | Zod + honeypot `website_hp`; 400 chi tiết; 503 thiếu env; **201 đã verify trên Supabase thật** |
+| `/api/leads` | GET | ✅ v1.2.0 | Admin only; filter `?status= ?source= ?q= ?page= ?limit=`; fallback select không `note` khi cloud chưa migration #2 (42703) |
+| `/api/leads/[id]` | PATCH | ✅ v1.1.0 | Admin only; `status` và/hoặc `note` (Zod `leadUpdateSchema`); PGRST116→404; 42703/PGRST204→báo chạy migration #2 |
+| `/api/events` | GET | ✅ v1.0.0 | Public; `is_active=true`; revalidate 300s; lỗi/thiếu env → `{events:[]}` |
+| `/api/schools` | GET | ✅ v1.0.0 | Public; `is_active=true`; lỗi/thiếu env → `{schools:[]}` |
+| `/api/admin/login` | POST | ✅ v1.0.0 | So `ADMIN_PASSWORD` → set cookie `admin_session` (SHA-256) |
+| `/api/admin/logout` | POST | ✅ v1.0.0 | Xóa cookie |
+| `/api/admin/events` (+`[id]`) | CRUD | ✅ v1.0.0 | Admin only; Zod `eventInputSchema` |
+| `/api/admin/schools` (+`[id]`) | CRUD | ✅ v1.0.0 | Admin only; Zod `schoolInputSchema` |
+
+> Auth admin: `src/middleware.ts` chặn `/admin/*` (Edge, Web Crypto) + `isAdminRequest()` trong
+> `src/lib/admin-auth.ts` guard API (Node crypto) — **cùng công thức token, sửa 1 nơi phải sửa cả 2**.
 
 ---
 
@@ -142,8 +153,11 @@ GitHub  : https://github.com/dhrog-trungdo6/duhocrog.git (branch: main) ✅ ĐÃ
           gh CLI đăng nhập account `dhrog-trungdo6` (device flow, 2026-07-08)
           Push dùng: git -c credential.helper='!gh auth git-credential' push
           (keychain osxkeychain vẫn lưu `trungdotest8` cho dự án Nam Ngân — KHÔNG xóa)
-Vercel  : ❌ CHƯA import — vercel.com → Add New Project → Import dhrog-trungdo6/duhocrog
-Supabase: ❌ CHƯA có project — cần tạo rồi chạy migration 20260708000001_initial_schema.sql
+          ⚠️ Admin CRM (phiên #3) CHƯA COMMIT — đang nằm working tree local
+Vercel  : ✅ ĐÃ LINK — có `.vercel/repo.json`; `.env.local` có VERCEL_OIDC_TOKEN (đã `vercel env pull`)
+Supabase: ✅ ĐÃ KẾT NỐI — migration initial_schema đã apply; bảng leads có 1 lead test
+          ("TEST Claude production - xoá sau" — cần xóa qua Dashboard, app không có nút xóa lead)
+          Bảng events/schools còn TRỐNG → FE đang fallback mock
 Resend  : ❌ chưa dùng (TODO luồng kép notification)
 ```
 
@@ -162,12 +176,13 @@ pnpm start -p 3111    # Production server test local
 
 ## Biến môi trường cần thiết
 
-Xem `.env.example`. Bắt buộc cho lead capture:
+Xem `.env.example`. Giá trị thật trong `.env.local` (gitignored — `.gitignore` đã có `.env*`):
 
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY    ← server-only, /api/leads dùng qua getSupabaseAdmin()
+ADMIN_PASSWORD               ← mật khẩu /admin/login; token = SHA-256("rog-admin:" + password)
 ```
 
 Thiếu env → `/api/leads` trả 503 "Hệ thống đang bảo trì" (chủ đích: không nhận lead ảo).
@@ -199,29 +214,48 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 
 ## 📝 CẬP NHẬT GẦN NHẤT & HÀNH ĐỘNG TIẾP THEO
 
-> ⚙️ Mục này cập nhật cuối mỗi phiên làm việc lớn (theo mô hình /handover của Nam Ngân).
+> ⚙️ **Mục này được tự động ghi đè bởi lệnh `/handover`.**
+> Không sửa tay — mọi thay đổi sẽ bị overwrite lần `/handover` tiếp theo.
+> Trigger: khi context > 70% HOẶC khi kết thúc một giai đoạn lập trình lớn.
 
 ### Trạng thái Modules
 
 | Module | Trạng thái | Files chính |
 |--------|-----------|-------------|
 | Homepage v1 (13 sections) | ✅ v1.0.0 | `src/app/page.tsx` — build 0 lỗi, lint 0 warning |
-| ⭐ SchoolFinder | ✅ v1.0.0 | cascading + dual slider + sort học bổng — client-side mock |
-| EventsTabs | ✅ v1.0.0 | empty state đúng mẫu thinkEDU |
-| Lead Capture API | ✅ v1.0.0 | `/api/leads` — đã test 400/503; chưa test 201 (thiếu env) |
-| Supabase schema | ✅ SQL sẵn sàng | ⚠️ chưa apply (chưa có project cloud) |
-| GitHub push | ✅ DONE | `main` đã lên origin (2 commits: 402bf77 + fa98209) |
+| ⭐ SchoolFinder | ✅ v1.1.0 | fetch `/api/schools` fallback mock; cascading + dual slider + sort học bổng |
+| EventsTabs | ✅ v1.1.0 | fetch `/api/events` fallback mock; empty state đúng mẫu thinkEDU |
+| Lead Capture API | ✅ v1.1.0 | `/api/leads` POST (201 verify Supabase thật) + GET admin |
+| Admin CRM | ✅ v1.0.0 ⚠️ CHƯA COMMIT | `/admin` 3 tab Leads/Events/Schools + `/admin/login`; `src/components/admin/` |
+| Admin Auth | ✅ v1.0.0 ⚠️ CHƯA COMMIT | `src/middleware.ts` (Edge) + `src/lib/admin-auth.ts` (Node) — cookie `admin_session` |
+| Supabase schema | ✅ ĐÃ APPLY cloud | bảng leads có 1 lead test; events/schools trống |
+| GitHub push | ⚠️ LỆCH | origin/main = 3 commits cũ; toàn bộ phiên #3 chưa commit |
+
+### Đã test thực tế (2026-07-08, production server :3111)
+
+- Login admin đúng password → 200 + cookie; `/admin` không cookie → 307 về `/admin/login`
+- `GET /api/leads` không cookie → 401; có cookie → 200 kèm data thật từ Supabase
+- `GET /api/events` + `/api/schools` → 200 `[]` (bảng trống, FE fallback mock)
+
+### Vấn đề đang mở
+
+- [ ] **Migration #2 chưa apply cloud** — `20260708000002_leads_note.sql` (cột `note`): chạy trên Supabase Dashboard → SQL Editor (CLI đang login account Nam Ngân, không có quyền project ROG). Trước khi apply, tính năng ghi chú báo lỗi hướng dẫn, các phần khác vẫn chạy bình thường
+- [ ] Lead test `"TEST Claude production - xoá sau"` trong bảng leads — xóa qua Supabase Dashboard
+- [ ] Thông tin thương hiệu `src/config/site.ts` vẫn placeholder toàn bộ
+- [ ] Ảnh placeholder: hero, hexagon quốc gia, logo trường, minh chứng visa
+- [ ] Luồng kép Email (Resend) chưa áp dụng
 
 ### Next Steps (làm ngay khi mở phiên mới)
 
-1. **Tạo Supabase project + apply migration** `20260708000001_initial_schema.sql` → điền 3 env vào `.env.local`, test POST /api/leads trả 201
-2. **Import Vercel** từ repo `dhrog-trungdo6/duhocrog` + set 3 env Supabase
-3. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` (hotline, email, địa chỉ, social, domain)
-4. Thay ảnh placeholder: hero banner, ảnh quốc gia hexagon, logo trường, ảnh minh chứng visa
+1. **Commit + push Admin CRM** — rủi ro lớn nhất: cả tính năng hoàn chỉnh chỉ nằm local (7 file sửa + 14 file mới)
+2. **Nhập dữ liệu events/schools thật qua `/admin`** — bảng đang trống, homepage vẫn hiện mock
+3. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` + xóa lead test trên Supabase Dashboard
 
 ### Change Log
 
 | Ngày | Giai đoạn | Thay đổi |
 |------|-----------|---------|
+| 2026-07-09 | Phiên #4 — CRM quản lý thông tin | LeadsTab: tìm kiếm ?q (tên/SĐT), lọc nguồn, ghi chú note/lead (migration #2), xuất Excel CSV BOM |
+| 2026-07-08 | Phiên #3 — Admin CRM + Supabase live | Admin CRM (/admin + login + middleware); 9 API routes; FE fetch Supabase fallback mock; Supabase + Vercel đã kết nối; lệnh /handover |
 | 2026-07-08 | Phiên #2 — Supabase + Events + GitHub | EventsTabs empty state; migration #1 (leads/events/schools+RLS); POST /api/leads (Zod+honeypot); LeadForm nối API + fallback lỗi; commit main; push 403 pending |
 | 2026-07-08 | Phiên #1 — Homepage v1.0.0 | Scaffold Next.js 14.2.5; 13 sections theo spec + mẫu thinkEDU; SchoolFinder cascading+slider; siteConfig placeholder |

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CalendarX2, MapPin } from "lucide-react";
 import type { EventItem } from "@/types";
-import { events } from "@/data/events";
+import { events as mockEvents } from "@/data/events";
 
 type TabKey = "upcoming" | "past";
 
@@ -52,9 +52,28 @@ function EventCard({ event }: { event: EventItem }) {
   );
 }
 
-/** Tabs "Sự kiện sắp diễn ra / đã diễn ra" — status derive từ startsAt, có empty state. */
+/**
+ * Tabs "Sự kiện sắp diễn ra / đã diễn ra" — status derive từ startsAt, có empty state.
+ * Data: ưu tiên bảng `events` Supabase (CMS quản lý) → fallback mock khi DB trống/lỗi mạng.
+ */
 export function EventsTabs() {
   const [tab, setTab] = useState<TabKey>("upcoming");
+  const [events, setEvents] = useState<EventItem[]>(mockEvents);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch("/api/events", { signal: controller.signal });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { events: EventItem[] };
+        if (payload.events.length > 0) setEvents(payload.events);
+      } catch {
+        // giữ mock — không crash section khi lỗi mạng
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   const { upcoming, past } = useMemo(() => {
     const now = Date.now();
@@ -67,7 +86,7 @@ export function EventsTabs() {
     upcomingList.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     pastList.sort((a, b) => b.startsAt.localeCompare(a.startsAt));
     return { upcoming: upcomingList, past: pastList };
-  }, []);
+  }, [events]);
 
   const visible = tab === "upcoming" ? upcoming : past;
 

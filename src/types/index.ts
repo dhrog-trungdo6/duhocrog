@@ -94,3 +94,51 @@ export interface LeadFormData {
   phone: string;
   country: string;
 }
+
+// ── Admin CRM — row types khớp bảng Supabase ─────────────────────────
+
+export type LeadStatus = "new" | "contacted" | "consulting" | "converted" | "lost";
+
+export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+  new: "Mới",
+  contacted: "Đã liên hệ",
+  consulting: "Đang tư vấn",
+  converted: "Chốt thành công",
+  lost: "Mất lead",
+};
+
+export interface LeadRow {
+  id: string;
+  full_name: string;
+  phone: string;
+  country_interest: string;
+  source: string;
+  status: LeadStatus;
+  /** Ghi chú chăm sóc — undefined khi cloud chưa chạy migration 20260708000002 */
+  note?: string | null;
+  created_at: string;
+}
+
+export interface EventRow {
+  id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  location: string | null;
+  href: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SchoolRow {
+  id: string;
+  name: string;
+  country: string;
+  province: string;
+  level: StudyLevel;
+  tuition_usd: number;
+  scholarship_up_to: number | null;
+  logo_url: string | null;
+  is_active: boolean;
+  created_at: string;
+}
