@@ -119,6 +119,26 @@ export interface LeadRow {
   created_at: string;
 }
 
+export type ActivityType = "note" | "call" | "email" | "status_change" | "other";
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  note: "Ghi chú",
+  call: "Cuộc gọi",
+  email: "Email",
+  status_change: "Đổi trạng thái",
+  other: "Khác",
+};
+
+/** Bảng lead_activities — nhật ký chăm sóc (migration 20260709000003). */
+export interface LeadActivity {
+  id: string;
+  lead_id: string;
+  staff_name: string;
+  action_type: ActivityType;
+  content: string;
+  created_at: string;
+}
+
 export interface EventRow {
   id: string;
   title: string;

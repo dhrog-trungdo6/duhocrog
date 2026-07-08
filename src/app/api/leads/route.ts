@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { leadFormSchema } from "@/lib/validations";
+import { leadFormSchema, LEAD_STATUSES } from "@/lib/validations";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { isAdminRequest } from "@/lib/admin-auth";
 
@@ -50,7 +50,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Không tải được leads" }, { status: 500 });
     }
 
-    return NextResponse.json({ leads: data, total: count ?? 0, page, limit });
+    // ?withCounts=1 → đếm TOÀN CỤC theo trạng thái (head query, không kéo rows) cho dashboard
+    let statusCounts: Record<string, number> | undefined;
+    if (searchParams.get("withCounts") === "1") {
+      const counts = await Promise.all(
+        LEAD_STATUSES.map((s) =>
+          supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", s)
+        )
+      );
+      statusCounts = Object.fromEntries(
+        LEAD_STATUSES.map((s, i) => [s, counts[i].count ?? 0])
+      );
+    }
+
+    return NextResponse.json({ leads: data, total: count ?? 0, page, limit, statusCounts });
   } catch (error) {
     console.error("[api/leads] GET unexpected:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

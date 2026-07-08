@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { leadUpdateSchema } from "@/lib/validations";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { isAdminRequest } from "@/lib/admin-auth";
+import { LEAD_STATUS_LABELS } from "@/types";
 
 /** PATCH /api/leads/[id] — admin cập nhật trạng thái chăm sóc và/hoặc ghi chú lead. */
 export async function PATCH(
@@ -49,6 +50,19 @@ export async function PATCH(
       // PGRST116 = không tìm thấy bản ghi
       const status = error.code === "PGRST116" ? 404 : 500;
       return NextResponse.json({ error: "Không cập nhật được lead" }, { status });
+    }
+
+    // Đổi trạng thái → tự ghi nhật ký chăm sóc (best-effort: bỏ qua khi chưa apply migration #3)
+    if (parsed.data.status !== undefined) {
+      const { error: logError } = await supabase.from("lead_activities").insert({
+        lead_id: params.id,
+        action_type: "status_change",
+        content: `Trạng thái → ${LEAD_STATUS_LABELS[parsed.data.status]}`,
+        staff_name: "Hệ thống",
+      });
+      if (logError && logError.code !== "42P01" && logError.code !== "PGRST205") {
+        console.error("[api/leads/[id]] log status_change:", logError);
+      }
     }
 
     return NextResponse.json(data);

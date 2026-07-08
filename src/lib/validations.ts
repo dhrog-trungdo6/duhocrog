@@ -43,6 +43,13 @@ export const leadUpdateSchema = z
     message: "Cần ít nhất một trường để cập nhật",
   });
 
+/** POST /api/leads/[id]/activities — nhật ký chăm sóc lead. */
+export const activityInputSchema = z.object({
+  action_type: z.enum(["note", "call", "email", "status_change", "other"]),
+  content: z.string().trim().min(1, "Nội dung không được trống").max(2000),
+  staff_name: z.string().trim().max(100).optional().default("Admin"),
+});
+
 export const eventInputSchema = z.object({
   title: z.string().trim().min(3, "Tiêu đề tối thiểu 3 ký tự").max(200),
   description: z.string().trim().max(1000).optional().default(""),

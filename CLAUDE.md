@@ -132,8 +132,9 @@ LeadFormData = { fullName: string; phone: string; country: string }
 | Route | Method | Trạng thái | Ghi chú |
 |-------|--------|-----------|---------|
 | `/api/leads` | POST | ✅ v1.0.0 | Zod + honeypot `website_hp`; 400 chi tiết; 503 thiếu env; **201 đã verify trên Supabase thật** |
-| `/api/leads` | GET | ✅ v1.2.0 | Admin only; filter `?status= ?source= ?q= ?page= ?limit=`; fallback select không `note` khi cloud chưa migration #2 (42703) |
-| `/api/leads/[id]` | PATCH | ✅ v1.1.0 | Admin only; `status` và/hoặc `note` (Zod `leadUpdateSchema`); PGRST116→404; 42703/PGRST204→báo chạy migration #2 |
+| `/api/leads` | GET | ✅ v1.3.0 | Admin only; filter `?status= ?source= ?q= ?page= ?limit=`; `?withCounts=1` → đếm toàn cục theo trạng thái (head query) |
+| `/api/leads/[id]` | PATCH | ✅ v1.2.0 | Admin only; `status` và/hoặc `note`; đổi status tự ghi nhật ký `status_change` (best-effort) |
+| `/api/leads/[id]/activities` | GET+POST | ✅ v1.0.0 | Nhật ký chăm sóc (note/call/email/status_change/other); ⚠️ cần migration #3; 42P01/PGRST205→báo hướng dẫn |
 | `/api/events` | GET | ✅ v1.0.0 | Public; `is_active=true`; revalidate 300s; lỗi/thiếu env → `{events:[]}` |
 | `/api/schools` | GET | ✅ v1.0.0 | Public; `is_active=true`; lỗi/thiếu env → `{schools:[]}` |
 | `/api/admin/login` | POST | ✅ v1.0.0 | So `ADMIN_PASSWORD` → set cookie `admin_session` (SHA-256) |
@@ -239,7 +240,8 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 
 ### Vấn đề đang mở
 
-- [ ] **Migration #2 chưa apply cloud** — `20260708000002_leads_note.sql` (cột `note`): chạy trên Supabase Dashboard → SQL Editor (CLI đang login account Nam Ngân, không có quyền project ROG). Trước khi apply, tính năng ghi chú báo lỗi hướng dẫn, các phần khác vẫn chạy bình thường
+- [x] Migration #2 (cột `leads.note`) — ✅ ĐÃ APPLY cloud (2026-07-09, user chạy Dashboard)
+- [ ] **Migration #3 chưa apply cloud** — `20260709000003_lead_activities.sql` (bảng nhật ký chăm sóc): chạy trên Supabase Dashboard → SQL Editor. Trước khi apply, panel nhật ký báo lỗi hướng dẫn, các phần khác vẫn chạy bình thường
 - [ ] Lead test `"TEST Claude production - xoá sau"` trong bảng leads — xóa qua Supabase Dashboard
 - [ ] Thông tin thương hiệu `src/config/site.ts` vẫn placeholder toàn bộ
 - [ ] Ảnh placeholder: hero, hexagon quốc gia, logo trường, minh chứng visa
@@ -255,7 +257,8 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 
 | Ngày | Giai đoạn | Thay đổi |
 |------|-----------|---------|
-| 2026-07-09 | Phiên #4 — CRM quản lý thông tin | LeadsTab: tìm kiếm ?q (tên/SĐT), lọc nguồn, ghi chú note/lead (migration #2), xuất Excel CSV BOM |
+| 2026-07-09 | Phiên #5 — CRM 2 cột kiểu Nam Ngân | Panel chi tiết + nhật ký chăm sóc (migration #3); stats toàn cục click-để-lọc; nút gọi/Zalo; /crm alias; auto-log status_change server-side |
+| 2026-07-09 | Phiên #4 — CRM quản lý thông tin | LeadsTab: tìm kiếm ?q (tên/SĐT), lọc nguồn, ghi chú note/lead (migration #2 ✅ cloud), xuất Excel CSV BOM |
 | 2026-07-08 | Phiên #3 — Admin CRM + Supabase live | Admin CRM (/admin + login + middleware); 9 API routes; FE fetch Supabase fallback mock; Supabase + Vercel đã kết nối; lệnh /handover |
 | 2026-07-08 | Phiên #2 — Supabase + Events + GitHub | EventsTabs empty state; migration #1 (leads/events/schools+RLS); POST /api/leads (Zod+honeypot); LeadForm nối API + fallback lỗi; commit main; push 403 pending |
 | 2026-07-08 | Phiên #1 — Homepage v1.0.0 | Scaffold Next.js 14.2.5; 13 sections theo spec + mẫu thinkEDU; SchoolFinder cascading+slider; siteConfig placeholder |
