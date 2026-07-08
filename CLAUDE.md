@@ -89,7 +89,7 @@ Lead.status           → 'new' | 'contacted' | 'consulting' | 'converted' | 'lo
 Lead.utm_source / utm_medium / utm_campaign → text nullable
 // Honeypot chống bot: body field `website_hp` phải là chuỗi rỗng
 
-// ── schools (SchoolFinder — hiện dùng mock src/data/schools.ts) ──
+// ── schools (SchoolFinder — fetch /api/schools, fallback mock vì bảng trống) ──
 School.level          → 'thpt' | 'cao-dang' | 'dai-hoc' | 'sau-dai-hoc' | 'anh-ngu'
 School.tuitionUsd     → number (filter slider $0–$60,000, step $1,000)
 School.scholarshipUpTo → number? (% học bổng — sort DESC ưu tiên, rồi tuition ASC)
@@ -204,20 +204,28 @@ src/
 ├── app/
 │   ├── layout.tsx         ← Header + Footer + FloatingCTA + ErrorBoundary + metadata
 │   ├── page.tsx           ← Hero → Destinations → Stats → WhyChooseUs → Events → News → SchoolFinder → Testimonial → Partners
+│   ├── admin/             ← Admin CRM (3 tab Leads/Events/Schools) + admin/login
+│   ├── crm/               ← alias redirect về /admin
 │   ├── dich-vu/visa/      ← 🆕 v1.4.0: Trang Dịch vụ Visa (10 section)
-│   └── api/leads/         ← POST lead capture (Supabase adminClient)
+│   └── api/               ← leads (+[id], activities), events, schools, admin (login/logout/events/schools)
+├── middleware.ts          ← Edge guard /admin/* — cookie admin_session (Web Crypto)
 ├── components/
 │   ├── ui/                ← Button, Slider (radix), Skeleton, ErrorBoundary
 │   ├── layout/            ← RogHeader, RogFooter, FloatingCTA
 │   ├── home/              ← 9 sections + LeadForm
+│   ├── admin/             ← LeadsTab, EventsTab, SchoolsTab
 │   └── services/          ← 🆕 v1.4.0: ServiceTabs, ServiceCard, CountryBadges, DataTable, FaqAccordion
 ├── config/site.ts         ← ⚠️ thông tin thương hiệu (placeholder)
 ├── data/                  ← destinations, schools, news, events, stats, partners, testimonials, 🆕 services (mock typed)
 ├── lib/
 │   ├── supabase/admin.ts  ← getSupabaseAdmin() — null-safe khi thiếu env
-│   └── validations.ts     ← leadFormSchema (Zod)
+│   ├── admin-auth.ts      ← isAdminRequest() (Node crypto) — cùng công thức token với middleware
+│   └── validations.ts     ← leadFormSchema + eventInputSchema + schoolInputSchema (Zod)
 └── types/index.ts         ← toàn bộ interfaces (🆕 v1.4.0: +6 types cho Services/Visa)
-supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+schools+RLS)
+supabase/migrations/
+├── 20260708000001_initial_schema.sql   ← leads+events+schools+RLS — ✅ đã apply cloud
+├── 20260708000002_leads_note.sql       ← cột leads.note — ✅ đã apply cloud
+└── 20260709000003_lead_activities.sql  ← bảng nhật ký chăm sóc — ✅ đã apply cloud
 ```
 
 ---
@@ -236,11 +244,11 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 | ⭐ SchoolFinder | ✅ v1.1.0 | fetch `/api/schools` fallback mock; cascading + dual slider + sort học bổng |
 | EventsTabs | ✅ v1.1.0 | fetch `/api/events` fallback mock; empty state đúng mẫu thinkEDU |
 | Lead Capture API | ✅ v1.1.0 | `/api/leads` POST (201 verify Supabase thật) + GET admin |
-| Admin CRM | ✅ v1.0.0 ⚠️ CHƯA COMMIT | `/admin` 3 tab Leads/Events/Schools + `/admin/login`; `src/components/admin/` |
-| Admin Auth | ✅ v1.0.0 ⚠️ CHƯA COMMIT | `src/middleware.ts` (Edge) + `src/lib/admin-auth.ts` (Node) — cookie `admin_session` |
+| Admin CRM | ✅ v1.0.0 — ĐÃ COMMIT + PUSH (`b615f0f`, `0c2cace`) | `/admin` 3 tab Leads/Events/Schools + `/admin/login` + alias `/crm`; `src/components/admin/` |
+| Admin Auth | ✅ v1.0.0 — ĐÃ COMMIT + PUSH | `src/middleware.ts` (Edge) + `src/lib/admin-auth.ts` (Node) — cookie `admin_session` |
 | 🆕 Dịch vụ Visa (v1.4.0) | ✅ ĐÃ COMMIT + PUSH | `src/app/dich-vu/visa/page.tsx` + 5 components + `src/data/services.ts` + types + tailwind config |
-| Supabase schema | ✅ ĐÃ APPLY cloud | bảng leads có 1 lead test; events/schools trống |
-| GitHub push | ✅ UP TO DATE | origin/main = f98748a (phiên #6 — Dịch vụ Visa v1.4.0) |
+| Supabase schema | ✅ ĐÃ APPLY cloud (#1, #2, #3) | bảng leads có 1 lead test; events/schools trống |
+| GitHub push | ✅ UP TO DATE | origin/main = e99b8bd (docs CLAUDE.md phiên #6); working tree clean |
 
 ### Đã test thực tế (2026-07-08, production server :3111)
 
@@ -251,7 +259,7 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 ### Vấn đề đang mở
 
 - [x] Migration #2 (cột `leads.note`) — ✅ ĐÃ APPLY cloud (2026-07-09, user chạy Dashboard)
-- [ ] **Migration #3 chưa apply cloud** — `20260709000003_lead_activities.sql` (bảng nhật ký chăm sóc): chạy trên Supabase Dashboard → SQL Editor. Trước khi apply, panel nhật ký báo lỗi hướng dẫn, các phần khác vẫn chạy bình thường
+- [x] Migration #3 (bảng `lead_activities`) — ✅ ĐÃ APPLY cloud (2026-07-09, user chạy Dashboard; verify REST 200)
 - [ ] Lead test `"TEST Claude production - xoá sau"` trong bảng leads — xóa qua Supabase Dashboard
 - [ ] Thông tin thương hiệu `src/config/site.ts` vẫn placeholder toàn bộ
 - [ ] Ảnh placeholder: hero, hexagon quốc gia, logo trường, minh chứng visa
@@ -259,9 +267,9 @@ supabase/migrations/       ← 20260708000001_initial_schema.sql (leads+events+s
 
 ### Next Steps (làm ngay khi mở phiên mới)
 
-1. **Commit + push Admin CRM** — rủi ro lớn nhất: cả tính năng hoàn chỉnh chỉ nằm local (7 file sửa + 14 file mới)
-2. **Nhập dữ liệu events/schools thật qua `/admin`** — bảng đang trống, homepage vẫn hiện mock
-3. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` + xóa lead test trên Supabase Dashboard
+1. **Nhập dữ liệu events/schools thật qua `/admin`** — bảng đang trống, homepage vẫn hiện mock
+2. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` + xóa lead test trên Supabase Dashboard
+3. **Ảnh thật** thay placeholder (hero, hexagon quốc gia, logo trường) — hoặc tích hợp Resend cho luồng kép email
 
 ### Change Log
 
