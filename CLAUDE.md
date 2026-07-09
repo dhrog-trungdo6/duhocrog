@@ -240,6 +240,7 @@ Resend  : ❌ chưa dùng
 | Dịch vụ Visa (v1.4.0) | ✅ |
 | SchoolFilter + Tìm Trường (v1.5.0) | ✅ |
 | 🆕 Mega Menu DU HỌC (v1.6.0) | ✅ |
+| 🆕 School Detail Page (v1.7.0) | ✅ |
 | Supabase schema #1, #2, #3 | ✅ Applied cloud |
 | Supabase migration #4 (school_details) | ⚠️ **CHƯA apply** |
 
@@ -248,7 +249,7 @@ Resend  : ❌ chưa dùng
 - [x] Migration #2 (`leads.note`) — ✅ Applied
 - [x] Migration #3 (`lead_activities`) — ✅ Applied
 - [ ] **Migration #4 (`school_details`) — ⚠️ CHƯA apply cloud**: chạy Dashboard → SQL Editor. API admin schools seed đã gửi `slug`, Zod đã validate các cột mới → trước khi tạo/sửa trường qua admin PHẢI apply migration này
-- [ ] Trang `/truong/[slug]` chưa xây — DB + types + Zod + slug đã có sẵn
+- [x] Trang `/truong/[slug]` — ✅ ĐÃ XÂY (Server Component, 3 trường mock: Ball State, UMass Boston, Green River College). Cần nối Supabase sau khi apply migration #4
 - [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
 - [ ] `src/config/site.ts` placeholder toàn bộ
 - [ ] Ảnh thật thay placeholder
@@ -257,13 +258,14 @@ Resend  : ❌ chưa dùng
 ### Next Steps (ưu tiên)
 
 1. **Apply migration #4** trên Supabase Dashboard — cần thiết trước khi dùng admin SchoolsTab
-2. **Xây trang `/truong/[slug]`** — hiển thị chi tiết trường từ DB
+2. ~~**Xây trang `/truong/[slug]`**~~ ✅ ĐÃ XONG — nối Supabase sau khi apply migration #4
 3. **Nhập dữ liệu thật** + điền thông tin thương hiệu
 
 ### Change Log
 
 | Ngày | Phiên | Thay đổi |
 |------|-------|---------|
+| 2026-07-10 | #9 — School Detail Page v1.7.0 | Trang `/truong/[slug]` Server Component; Hero gradient + logo + badges; 2-column grid (description, highlights, programs, requirements + sticky sidebar tuition/scholarship CTA); 3 trường mock (Ball State, UMass Boston, Green River College); generateMetadata SEO |
 | 2026-07-10 | #8 — Mega Menu DU HỌC v1.6.0 | StudyAbroadMegaMenu (desktop full-width, nav-bg: bg-navy, sidebar 6 nước + featured/related articles grid); Fix positioning: move Mega Menu outside `<li>` vào header-level wrapper; StudyDestination, StudyAbroadMegaMenuProps types; megaMenu mock data (6 nước, 24 bài viết); Article extended (imageUrl?, isHot?) |
 | 2026-07-09 | #7 — SchoolFilter + DU HỌC dropdown v1.5.0 | SchoolFilter component (props-driven, Radix Slider); Trang `/tim-truong` + `?country=`; Dropdown "DU HỌC" 12 nước; StudyDestinations links; "Tiếng Anh" → "Tìm Trường"; +4 types |
 | 2026-07-09 | #6 — Dịch vụ Visa v1.4.0 | Dropdown "DỊCH VỤ" + Trang `/dich-vu/visa` 10 section + 5 components + accent-orange |
