@@ -70,107 +70,116 @@ export function RogHeader() {
         </button>
       </div>
 
-      {/* Navigation bar */}
-      <nav className="hidden bg-primary md:block" aria-label="Điều hướng chính">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4">
-          <ul className="flex">
-            {NAV_ITEMS.map((item) => {
-              if ("hasDropdown" in item && item.hasDropdown && item.dropdownKey === "services") {
+      {/* Navigation bar + Mega Menu wrapper (relative cho absolute positioning) */}
+      <div className="relative">
+        <nav className="hidden bg-primary md:block" aria-label="Điều hướng chính">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4">
+            <ul className="flex">
+              {NAV_ITEMS.map((item) => {
+                if ("hasDropdown" in item && item.hasDropdown && item.dropdownKey === "services") {
+                  return (
+                    <li
+                      key={item.label}
+                      className="relative"
+                      onMouseEnter={() => setServicesDropdownOpen(true)}
+                      onMouseLeave={() => setServicesDropdownOpen(false)}
+                    >
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-1 px-4 py-3 text-sm font-semibold uppercase text-white transition-colors hover:bg-primary-light"
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        {item.label}
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${servicesDropdownOpen ? "rotate-180" : ""}`}
+                          aria-hidden
+                        />
+                      </Link>
+                      {servicesDropdownOpen && (
+                        <ul className="absolute left-0 top-full z-50 min-w-[220px] rounded-b-md bg-neutral-800 py-2 shadow-lg">
+                          {serviceMenuData.map((svc) => (
+                            <li key={svc.label}>
+                              <Link
+                                href={svc.href}
+                                className="block px-4 py-2.5 text-sm text-white transition-colors hover:bg-primary"
+                              >
+                                <span className="font-semibold">{svc.label}</span>
+                                {svc.children && svc.children.length > 0 && (
+                                  <ul className="ml-3 mt-1 space-y-1">
+                                    {svc.children.map((child) => (
+                                      <li key={child.label}>
+                                        <Link
+                                          href={child.href}
+                                          className="block py-1 text-xs text-gray-300 transition-colors hover:text-accent-orange"
+                                        >
+                                          {child.label}
+                                        </Link>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                }
+                if ("hasDropdown" in item && item.hasDropdown && item.dropdownKey === "study") {
+                  return (
+                    <li
+                      key={item.label}
+                      onMouseEnter={() => setStudyDropdownOpen(true)}
+                      onMouseLeave={() => setStudyDropdownOpen(false)}
+                    >
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-1 px-4 py-3 text-sm font-semibold uppercase text-white transition-colors hover:bg-primary-light"
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        {item.label}
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${studyDropdownOpen ? "rotate-180" : ""}`}
+                          aria-hidden
+                        />
+                      </Link>
+                    </li>
+                  );
+                }
                 return (
-                  <li
-                    key={item.label}
-                    className="relative"
-                    onMouseEnter={() => setServicesDropdownOpen(true)}
-                    onMouseLeave={() => setServicesDropdownOpen(false)}
-                  >
+                  <li key={item.label}>
                     <Link
                       href={item.href}
-                      className="flex items-center gap-1 px-4 py-3 text-sm font-semibold uppercase text-white transition-colors hover:bg-primary-light"
-                      onClick={(e) => e.preventDefault()}
+                      className="block px-4 py-3 text-sm font-semibold uppercase text-white transition-colors hover:bg-primary-light"
                     >
                       {item.label}
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${servicesDropdownOpen ? "rotate-180" : ""}`}
-                        aria-hidden
-                      />
                     </Link>
-                    {servicesDropdownOpen && (
-                      <ul className="absolute left-0 top-full z-50 min-w-[220px] rounded-b-md bg-neutral-800 py-2 shadow-lg">
-                        {serviceMenuData.map((svc) => (
-                          <li key={svc.label}>
-                            <Link
-                              href={svc.href}
-                              className="block px-4 py-2.5 text-sm text-white transition-colors hover:bg-primary"
-                            >
-                              <span className="font-semibold">{svc.label}</span>
-                              {svc.children && svc.children.length > 0 && (
-                                <ul className="ml-3 mt-1 space-y-1">
-                                  {svc.children.map((child) => (
-                                    <li key={child.label}>
-                                      <Link
-                                        href={child.href}
-                                        className="block py-1 text-xs text-gray-300 transition-colors hover:text-accent-orange"
-                                      >
-                                        {child.label}
-                                      </Link>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </li>
                 );
-              }
-              if ("hasDropdown" in item && item.hasDropdown && item.dropdownKey === "study") {
-                return (
-                  <li
-                    key={item.label}
-                    className="relative"
-                    onMouseEnter={() => setStudyDropdownOpen(true)}
-                    onMouseLeave={() => setStudyDropdownOpen(false)}
-                  >
-                    <Link
-                      href={item.href}
-                      className="flex items-center gap-1 px-4 py-3 text-sm font-semibold uppercase text-white transition-colors hover:bg-primary-light"
-                      onClick={(e) => e.preventDefault()}
-                    >
-                      {item.label}
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${studyDropdownOpen ? "rotate-180" : ""}`}
-                        aria-hidden
-                      />
-                    </Link>
-                    {studyDropdownOpen && (
-                      <StudyAbroadMegaMenu destinations={studyDestinations} />
-                    )}
-                  </li>
-                );
-              }
-              return (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="block px-4 py-3 text-sm font-semibold uppercase text-white transition-colors hover:bg-primary-light"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          <button
-            type="button"
-            className="rounded-md p-2 text-white transition-colors hover:bg-primary-light"
-            aria-label="Tìm kiếm"
+              })}
+            </ul>
+            <button
+              type="button"
+              className="rounded-md p-2 text-white transition-colors hover:bg-primary-light"
+              aria-label="Tìm kiếm"
+            >
+              <Search className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+        </nav>
+
+        {/* Mega Menu DU HỌC — render ở cấp header để full-width.
+            onMouseEnter/Leave trên wrapper giữ menu mở khi hover vào nội dung */}
+        {studyDropdownOpen && (
+          <div
+            onMouseEnter={() => setStudyDropdownOpen(true)}
+            onMouseLeave={() => setStudyDropdownOpen(false)}
           >
-            <Search className="h-5 w-5" aria-hidden />
-          </button>
-        </div>
-      </nav>
+            <StudyAbroadMegaMenu destinations={studyDestinations} />
+          </div>
+        )}
+      </div>
 
       {/* Mobile menu */}
       {mobileOpen && (
