@@ -7,6 +7,8 @@ import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/Button";
 import { serviceMenuData } from "@/data/services";
 import { studyAbroadMenuData } from "@/data/destinations";
+import StudyAbroadMegaMenu from "@/components/layout/StudyAbroadMegaMenu";
+import { studyDestinations } from "@/data/megaMenu";
 
 const NAV_ITEMS = [
   { label: "Trang chủ", href: "/" },
@@ -143,18 +145,7 @@ export function RogHeader() {
                       />
                     </Link>
                     {studyDropdownOpen && (
-                      <ul className="absolute left-0 top-full z-50 min-w-[220px] rounded-b-md bg-neutral-800 py-2 shadow-lg">
-                        {studyAbroadMenuData.map((item) => (
-                          <li key={item.label}>
-                            <Link
-                              href={item.href}
-                              className="block px-4 py-2.5 text-sm text-white transition-colors hover:bg-primary"
-                            >
-                              <span className="font-semibold">{item.label}</span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                      <StudyAbroadMegaMenu destinations={studyDestinations} />
                     )}
                   </li>
                 );

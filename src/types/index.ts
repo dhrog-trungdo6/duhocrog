@@ -34,7 +34,25 @@ export interface Article {
   excerpt: string;
   publishedAt: string; // ISO 8601
   thumbnailUrl?: string;
+  imageUrl?: string; // v1.6.0: mega menu — URL ảnh hoặc '' để dùng placeholder
   href: string;
+  isHot?: boolean;
+}
+
+// ── Mega Menu "DU HỌC" (v1.6.0) ─────────────────────────────────
+
+export interface StudyDestination {
+  id: string;
+  slug: string; // 'my', 'canada', 'uc'... → /du-hoc/{slug}
+  name: string; // 'Du học Mỹ'
+  shortName: string; // 'MỸ'
+  featuredArticle: Article;
+  relatedArticles: Article[]; // 3–4 bài
+}
+
+export interface StudyAbroadMegaMenuProps {
+  destinations: StudyDestination[];
+  className?: string;
 }
 
 export interface Scholarship {
