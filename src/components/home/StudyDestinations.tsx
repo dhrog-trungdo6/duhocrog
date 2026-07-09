@@ -22,7 +22,7 @@ export function StudyDestinations() {
         <ul className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
           {destinations.map((country) => (
             <li key={country.code}>
-              <a href="#lead-form" className="group flex flex-col items-center gap-4">
+              <a href={`/tim-truong?country=${country.code}`} className="group flex flex-col items-center gap-4">
                 <div
                   className="h-36 w-36 overflow-hidden md:h-44 md:w-44"
                   style={{ clipPath: HEXAGON_CLIP }}

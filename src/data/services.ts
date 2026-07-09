@@ -13,11 +13,11 @@ export const serviceMenuData: ServiceMenuItem[] = [
     label: "Dịch Vụ Visa",
     href: "/dich-vu/visa",
     children: [
-      { label: "Visa Mỹ", href: "/dich-vu/visa/my" },
-      { label: "Visa Anh", href: "/dich-vu/visa/anh" },
-      { label: "Visa Úc", href: "/dich-vu/visa/uc" },
-      { label: "Visa Canada", href: "/dich-vu/visa/canada" },
-      { label: "Visa Singapore", href: "/dich-vu/visa/singapore" },
+      { label: "Visa Mỹ", href: "/dich-vu/visa" },
+      { label: "Visa Anh", href: "/dich-vu/visa" },
+      { label: "Visa Úc", href: "/dich-vu/visa" },
+      { label: "Visa Canada", href: "/dich-vu/visa" },
+      { label: "Visa Singapore", href: "/dich-vu/visa" },
     ],
   },
   {
