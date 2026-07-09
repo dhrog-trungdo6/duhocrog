@@ -88,7 +88,8 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 1 | `20260708000001` | `leads` (full_name, phone, country_interest, source, status, utm_*, created_at) + `events` (title, description, starts_at, location, href, is_active) + `schools` (name, country, province, level, tuition_usd, scholarship_up_to, logo_url, is_active) + RLS | ✅ Applied |
 | 2 | `20260708000002` | `leads.note` (text — ghi chú chăm sóc CRM) | ✅ Applied |
 | 3 | `20260709000003` | `lead_activities` (lead_id FK, staff_name, action_type, content, created_at) — nhật ký chăm sóc | ✅ Applied |
-| 4 | `20260710000004` | `schools.*` — thêm 9 cột: `slug` (unique partial index), `description`, `website_url`, `image_url`, `video_url`, `gallery_urls[]`, `highlights[]`, `programs[]`, `requirements[]` | ⚠️ **CHƯA apply** |
+| 4 | `20260710000004` | `schools.*` — thêm 9 cột: `slug` (unique partial index), `description`, `website_url`, `image_url`, `video_url`, `gallery_urls[]`, `highlights[]`, `programs[]`, `requirements[]` | ✅ Applied |
+| 5 | `20260710000005` | `schools.*` — thêm 6 cột: `founded_year`, `school_type`, `total_students`, `intakes[]`, `map_embed_url`, `content_sections` (JSONB discriminated union: html/list/table) + GIN index | ✅ Applied |
 
 ### Chi tiết từng bảng:
 
@@ -242,14 +243,16 @@ Resend  : ❌ chưa dùng
 | 🆕 Mega Menu DU HỌC (v1.6.0) | ✅ |
 | 🆕 School Detail Page (v1.7.0) | ✅ |
 | Supabase schema #1, #2, #3 | ✅ Applied cloud |
-| Supabase migration #4 (school_details) | ⚠️ **CHƯA apply** |
+| Supabase migration #4 (school_details) | ✅ Applied cloud |
+| 🆕 Supabase migration #5 (rich_school_details) | ✅ Applied cloud |
 
 ### Vấn đề đang mở
 
 - [x] Migration #2 (`leads.note`) — ✅ Applied
 - [x] Migration #3 (`lead_activities`) — ✅ Applied
-- [ ] **Migration #4 (`school_details`) — ⚠️ CHƯA apply cloud**: chạy Dashboard → SQL Editor. API admin schools seed đã gửi `slug`, Zod đã validate các cột mới → trước khi tạo/sửa trường qua admin PHẢI apply migration này
-- [x] Trang `/truong/[slug]` — ✅ ĐÃ XÂY (Server Component, 3 trường mock: Ball State, UMass Boston, Green River College). Cần nối Supabase sau khi apply migration #4
+- [x] **Migration #4 (`school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
+- [x] **Migration #5 (`rich_school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
+- [x] Trang `/truong/[slug]` — ✅ ĐÃ XÂY (Server Component, 3 trường mock). Sẵn sàng nối Supabase
 - [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
 - [ ] `src/config/site.ts` placeholder toàn bộ
 - [ ] Ảnh thật thay placeholder
@@ -257,9 +260,9 @@ Resend  : ❌ chưa dùng
 
 ### Next Steps (ưu tiên)
 
-1. **Apply migration #4** trên Supabase Dashboard — cần thiết trước khi dùng admin SchoolsTab
-2. ~~**Xây trang `/truong/[slug]`**~~ ✅ ĐÃ XONG — nối Supabase sau khi apply migration #4
-3. **Nhập dữ liệu thật** + điền thông tin thương hiệu
+1. ~~**Apply migration #4**~~ ✅ ĐÃ XONG
+2. ~~**Xây trang `/truong/[slug]`**~~ ✅ ĐÃ XONG — nối Supabase sau khi seed DB
+3. **Nhập dữ liệu thật** (seed schools hoặc crawler) + điền thông tin thương hiệu
 
 ### Change Log
 
