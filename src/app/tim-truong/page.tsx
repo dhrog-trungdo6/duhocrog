@@ -1,107 +1,58 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { GraduationCap, Percent, SearchX } from "lucide-react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, GraduationCap, Percent, SearchX } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import type { School, FilterOption, ProvinceFilterOption, FilterState } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
-import { schools as mockSchools } from "@/data/schools";
+import {
+  countryLabelByCode,
+  formatUsd,
+  provinceLabelByCode,
+  searchSchools,
+  useSchools,
+} from "@/lib/schools";
 import SchoolFilter from "@/components/schools/SchoolFilter";
 
-/** Format USD */
-function formatUsd(value: number): string {
-  return `$${value.toLocaleString("en-US")}`;
-}
+/** Options cho SchoolFilter — hằng module, derive từ data tĩnh nên không cần useMemo */
+const countryOptions: FilterOption[] = destinations.map((d) => ({
+  label: d.name.replace("Du học ", ""),
+  value: d.code,
+}));
 
-/** Build filter options từ destinations */
-function buildCountryOptions(): FilterOption[] {
-  return destinations.map((d) => ({
-    label: d.name.replace("Du học ", ""),
-    value: d.code,
-  }));
-}
-
-/** Build province options từ data/destinations.ts */
-function buildProvinceOptions(): ProvinceFilterOption[] {
-  return provinces.map((p) => ({
-    label: p.name,
-    value: p.code,
-    countryValue: p.countryCode,
-  }));
-}
+const provinceOptions: ProvinceFilterOption[] = provinces.map((p) => ({
+  label: p.name,
+  value: p.code,
+  countryValue: p.countryCode,
+}));
 
 function TimTruongContent() {
   const searchParams = useSearchParams();
   const initialCountry = searchParams.get("country") ?? "";
 
-  const [schools, setSchools] = useState<School[]>(mockSchools);
+  const schools = useSchools();
   const [results, setResults] = useState<School[] | null>(null);
-  const [lastFilter, setLastFilter] = useState<Omit<FilterState, "level"> & { level: string }>({
+  const [lastFilter, setLastFilter] = useState<FilterState>({
     country: initialCountry,
     province: "",
     level: "",
     tuitionRange: [0, 60000],
   });
 
-  // Fetch schools từ Supabase — fallback mock
+  // Tìm kiếm khi schools sẵn sàng/đổi nguồn (mock → Supabase) — mặc định hiện tất cả hoặc theo ?country=
   useEffect(() => {
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const response = await fetch("/api/schools", { signal: controller.signal });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { schools: School[] };
-        if (payload.schools.length > 0) setSchools(payload.schools);
-      } catch {
-        // giữ mock
-      }
-    })();
-    return () => controller.abort();
-  }, []);
-
-  // Auto-search khi có ?country= hoặc khi schools load
-  const doSearch = useCallback(
-    (filters: Omit<FilterState, "level"> & { level: string }) => {
-      const [minTuition, maxTuition] = filters.tuitionRange;
-      const matched = schools
-        .filter(
-          (s) =>
-            (!filters.country || s.country === filters.country) &&
-            (!filters.province || s.province === filters.province) &&
-            (!filters.level || s.level === filters.level) &&
-            s.tuitionUsd >= minTuition &&
-            s.tuitionUsd <= maxTuition,
-        )
-        .sort(
-          (a, b) =>
-            (b.scholarshipUpTo ?? 0) - (a.scholarshipUpTo ?? 0) ||
-            a.tuitionUsd - b.tuitionUsd,
-        );
-      setResults(matched);
-    },
-    [schools],
-  );
-
-  // Chạy tìm kiếm lần đầu khi schools load xong (hiển thị tất cả hoặc theo ?country=)
-  useEffect(() => {
-    if (schools.length > 0) {
-      doSearch(lastFilter);
-    }
+    setResults(searchSchools(schools, lastFilter));
   }, [schools]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = useCallback(
-    (filters: Omit<FilterState, "level"> & { level: string }) => {
+    (filters: FilterState) => {
       setLastFilter(filters);
-      doSearch(filters);
+      setResults(searchSchools(schools, filters));
     },
-    [doSearch],
+    [schools],
   );
-
-  const countryOptions = useMemo(() => buildCountryOptions(), []);
-  const provinceOptions = useMemo(() => buildProvinceOptions(), []);
 
   const countryNameFromFilter = destinations.find((d) => d.code === lastFilter.country)?.name;
 
@@ -168,12 +119,9 @@ function TimTruongContent() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {results.map((school) => {
                 const countryLabel =
-                  destinations
-                    .find((c) => c.code === school.country)
-                    ?.name.replace("Du học ", "") ?? school.country;
+                  countryLabelByCode.get(school.country) ?? school.country;
                 const provinceLabel =
-                  provinces.find((p) => p.code === school.province)?.name ??
-                  school.province;
+                  provinceLabelByCode.get(school.province) ?? school.province;
                 return (
                   <div
                     key={school.id}

@@ -33,8 +33,7 @@ export interface Article {
   title: string;
   excerpt: string;
   publishedAt: string; // ISO 8601
-  thumbnailUrl?: string;
-  imageUrl?: string; // v1.6.0: mega menu — URL ảnh hoặc '' để dùng placeholder
+  thumbnailUrl?: string; // URL ảnh — bỏ trống/undefined để dùng placeholder gradient
   href: string;
   isHot?: boolean;
 }
@@ -189,7 +188,7 @@ export interface FilterState {
 }
 
 export interface SchoolFilterProps {
-  onSearch: (filters: Omit<FilterState, "level"> & { level: string }) => void;
+  onSearch: (filters: FilterState) => void;
   countries: FilterOption[];
   provinces: ProvinceFilterOption[];
 }

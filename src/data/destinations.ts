@@ -57,18 +57,9 @@ export const provinces: Province[] = [
   { code: "th-bkk", name: "Bangkok", countryCode: "th" },
 ];
 
-/** Menu dropdown "DU HỌC" trong RogHeader — sub-link theo quốc gia. */
-export const studyAbroadMenuData: ServiceMenuItem[] = [
-  { label: "Du học Mỹ", href: "/tim-truong?country=us" },
-  { label: "Du học Canada", href: "/tim-truong?country=ca" },
-  { label: "Du học Úc", href: "/tim-truong?country=au" },
-  { label: "Du học Anh", href: "/tim-truong?country=uk" },
-  { label: "Du học Singapore", href: "/tim-truong?country=sg" },
-  { label: "Du học Ireland", href: "/tim-truong?country=ie" },
-  { label: "Du học New Zealand", href: "/tim-truong?country=nz" },
-  { label: "Du học Thụy Sĩ", href: "/tim-truong?country=ch" },
-  { label: "Du học Pháp", href: "/tim-truong?country=fr" },
-  { label: "Du học Malaysia", href: "/tim-truong?country=my" },
-  { label: "Du học Philippines", href: "/tim-truong?country=ph" },
-  { label: "Du học Thái Lan", href: "/tim-truong?country=th" },
-];
+/** Menu dropdown "DU HỌC" trong RogHeader — derive từ `destinations` (1 nguồn chuẩn,
+ *  thêm/bớt quốc gia chỉ cần sửa mảng trên). */
+export const studyAbroadMenuData: ServiceMenuItem[] = destinations.map((d) => ({
+  label: d.name,
+  href: `/tim-truong?country=${d.code}`,
+}));

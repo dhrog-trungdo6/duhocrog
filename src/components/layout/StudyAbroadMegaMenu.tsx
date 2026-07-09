@@ -109,7 +109,7 @@ export default function StudyAbroadMegaMenu({
                 <Link href={featuredArticle.href} className="group block">
                   <div className="relative aspect-video overflow-hidden rounded-lg">
                     <ArticleThumbnail
-                      imageUrl={featuredArticle.imageUrl ?? ""}
+                      imageUrl={featuredArticle.thumbnailUrl ?? ""}
                       alt={featuredArticle.title}
                       className="h-full w-full"
                     />
@@ -134,7 +134,7 @@ export default function StudyAbroadMegaMenu({
                   <article key={article.id}>
                     <Link href={article.href} className="group flex gap-3 items-start">
                       <ArticleThumbnail
-                        imageUrl={article.imageUrl ?? ""}
+                        imageUrl={article.thumbnailUrl ?? ""}
                         alt={article.title}
                         className="h-16 w-24 shrink-0 rounded"
                       />

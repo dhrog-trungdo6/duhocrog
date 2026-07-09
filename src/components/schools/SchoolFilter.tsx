@@ -8,31 +8,30 @@
  * - KHÔNG fetch, KHÔNG Supabase, KHÔNG router — chỉ nhận props + gọi onSearch().
  * - Types import từ src/types/index.ts (Nguyên tắc #3 — không khai báo type mới ở đây).
  * - Màu lấy từ tailwind theme (primary / primary-dark / primary-light) — không hardcode hex.
- * - Dual-handle slider: @radix-ui/react-slider (đã có sẵn trong dự án, dùng chung với SchoolFinder).
+ * - Dual-handle slider: dùng Radix trực tiếp (không dùng ui/Slider vì cần badge giá trị
+ *   bám thumb + phối màu trắng trên nền primary-dark, khác thiết kế accent của SchoolFinder).
  */
 
 import { useMemo, useState } from "react";
 import * as Slider from "@radix-ui/react-slider";
 import { Search } from "lucide-react";
 import type { FilterState, SchoolFilterProps } from "@/types";
+import { STUDY_LEVEL_LABELS } from "@/types";
+import { formatUsd } from "@/lib/schools";
 
 const TUITION_MIN = 0;
 const TUITION_MAX = 60000;
 const TUITION_STEP = 1000;
 
-/** Bậc học cố định — mapping đúng School['level'] trong types/index.ts */
-const LEVEL_OPTIONS: { label: string; value: string }[] = [
-  { label: "THPT", value: "thpt" },
-  { label: "Cao đẳng", value: "cao-dang" },
-  { label: "Đại học", value: "dai-hoc" },
-  { label: "Sau đại học", value: "sau-dai-hoc" },
-  { label: "Anh ngữ", value: "anh-ngu" },
-];
+/** Bậc học — derive từ nguồn chuẩn STUDY_LEVEL_LABELS (types/index.ts) */
+const LEVEL_OPTIONS = Object.entries(STUDY_LEVEL_LABELS).map(([value, label]) => ({
+  label,
+  value,
+}));
 
-/** $60,000 → "$60,000+", còn lại "$xx,xxx" */
-function formatUsd(value: number): string {
-  const formatted = `$${value.toLocaleString("en-US")}`;
-  return value >= TUITION_MAX ? `${formatted}+` : formatted;
+/** $60,000 → "$60,000+" (chạm trần slider), còn lại "$xx,xxx" */
+function formatTuition(value: number): string {
+  return value >= TUITION_MAX ? `${formatUsd(value)}+` : formatUsd(value);
 }
 
 const selectClassName =
@@ -79,12 +78,7 @@ export default function SchoolFilter({ onSearch, countries, provinces }: SchoolF
   };
 
   const handleSubmit = () => {
-    onSearch({
-      country: filters.country,
-      province: filters.province,
-      level: filters.level,
-      tuitionRange: filters.tuitionRange,
-    });
+    onSearch(filters);
   };
 
   return (
@@ -186,7 +180,7 @@ export default function SchoolFilter({ onSearch, countries, provinces }: SchoolF
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-medium text-white">Học phí tham khảo (USD/năm)</p>
               <p className="text-xs text-white/70">
-                {formatUsd(TUITION_MIN)} – {formatUsd(TUITION_MAX)}
+                {formatTuition(TUITION_MIN)} – {formatTuition(TUITION_MAX)}
               </p>
             </div>
 
@@ -197,7 +191,7 @@ export default function SchoolFilter({ onSearch, countries, provinces }: SchoolF
                 onValueChange={(value) =>
                   setFilters((prev) => ({
                     ...prev,
-                    tuitionRange: [value[0], value[1]] as [number, number],
+                    tuitionRange: value as [number, number],
                   }))
                 }
                 min={TUITION_MIN}
@@ -224,7 +218,7 @@ export default function SchoolFilter({ onSearch, countries, provinces }: SchoolF
                       className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded
                                  bg-white px-2 py-0.5 text-xs font-semibold text-primary-dark shadow"
                     >
-                      {formatUsd(value)}
+                      {formatTuition(value)}
                     </span>
                   </Slider.Thumb>
                 ))}

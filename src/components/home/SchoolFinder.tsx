@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { GraduationCap, Percent, Search, SearchX } from "lucide-react";
 import type { School, StudyLevel } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
-import { schools as mockSchools } from "@/data/schools";
+import {
+  countryLabelByCode,
+  formatUsd,
+  provinceLabelByCode,
+  searchSchools,
+  useSchools,
+} from "@/lib/schools";
 import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
 
@@ -18,15 +24,11 @@ const LEVELS = Object.entries(STUDY_LEVEL_LABELS) as [StudyLevel, string][];
 const selectClasses =
   "w-full rounded-md border border-white/25 bg-white/10 px-3 py-2.5 text-sm text-white focus:border-white focus:outline-none [&>option]:text-slate-900";
 
-function formatUsd(value: number): string {
-  return `$${value.toLocaleString("en-US")}`;
-}
-
 /**
  * ⭐ Công cụ tìm trường & học bổng — tính năng lõi.
- * Phương án (A) — client-side filter: lọc mảng `schools` trong src/data/schools.ts
- * theo 4 tiêu chí và hiển thị kết quả ngay bên dưới (kèm empty state).
- * Nâng cấp sau: chuyển sang (B) router.push('/tim-truong?...') khi có trang kết quả riêng.
+ * Client-side filter (logic chung `searchSchools` trong src/lib/schools.ts):
+ * lọc theo 4 tiêu chí và hiển thị kết quả ngay bên dưới (kèm empty state).
+ * Trang kết quả riêng: /tim-truong (dùng chung searchSchools + useSchools).
  */
 export function SchoolFinder() {
   const [country, setCountry] = useState("");
@@ -37,23 +39,7 @@ export function SchoolFinder() {
     TUITION_MAX,
   ]);
   const [results, setResults] = useState<School[] | null>(null);
-  // Data: ưu tiên bảng `schools` Supabase (CMS quản lý) → fallback mock khi DB trống/lỗi
-  const schoolsRef = useRef<School[]>(mockSchools);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const response = await fetch("/api/schools", { signal: controller.signal });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { schools: School[] };
-        if (payload.schools.length > 0) schoolsRef.current = payload.schools;
-      } catch {
-        // giữ mock — không crash section khi lỗi mạng
-      }
-    })();
-    return () => controller.abort();
-  }, []);
+  const schools = useSchools();
 
   // Cascading select: chỉ derive tỉnh bang của quốc gia đang chọn
   const provinceOptions = useMemo(
@@ -67,23 +53,7 @@ export function SchoolFinder() {
   };
 
   const handleSearch = () => {
-    const [minTuition, maxTuition] = tuitionRange;
-    const matched = schoolsRef.current
-      .filter(
-        (s) =>
-          (!country || s.country === country) &&
-          (!province || s.province === province) &&
-          (!level || s.level === level) &&
-          s.tuitionUsd >= minTuition &&
-          s.tuitionUsd <= maxTuition
-      )
-      // Ưu tiên: học bổng cao nhất trước, sau đó học phí thấp nhất
-      .sort(
-        (a, b) =>
-          (b.scholarshipUpTo ?? 0) - (a.scholarshipUpTo ?? 0) ||
-          a.tuitionUsd - b.tuitionUsd
-      );
-    setResults(matched);
+    setResults(searchSchools(schools, { country, province, level, tuitionRange }));
   };
 
   return (
@@ -209,12 +179,9 @@ export function SchoolFinder() {
                 <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {results.map((school) => {
                     const countryName =
-                      destinations
-                        .find((c) => c.code === school.country)
-                        ?.name.replace("Du học ", "") ?? school.country;
+                      countryLabelByCode.get(school.country) ?? school.country;
                     const provinceName =
-                      provinces.find((p) => p.code === school.province)?.name ??
-                      school.province;
+                      provinceLabelByCode.get(school.province) ?? school.province;
                     return (
                       <li
                         key={school.id}
