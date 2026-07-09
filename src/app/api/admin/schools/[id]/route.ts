@@ -30,6 +30,12 @@ export async function PATCH(request: Request, { params }: Params) {
       .single();
 
     if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "Slug đã tồn tại — nhập slug khác cho trường này" },
+          { status: 409 }
+        );
+      }
       const status = error.code === "PGRST116" ? 404 : 500;
       return NextResponse.json({ error: "Không cập nhật được trường" }, { status });
     }

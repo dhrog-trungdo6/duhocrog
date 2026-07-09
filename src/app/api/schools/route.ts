@@ -14,7 +14,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("schools")
-      .select("id, name, country, province, level, tuition_usd, scholarship_up_to, logo_url")
+      .select("id, name, country, province, level, tuition_usd, scholarship_up_to, logo_url, slug")
       .eq("is_active", true)
       .limit(500);
 
@@ -23,9 +23,19 @@ export async function GET() {
       return NextResponse.json({ schools: [] });
     }
 
-    const schools: School[] = (
-      data as Omit<SchoolRow, "is_active" | "created_at">[]
-    ).map((row) => ({
+    type ListRow = Pick<
+      SchoolRow,
+      | "id"
+      | "name"
+      | "country"
+      | "province"
+      | "level"
+      | "tuition_usd"
+      | "scholarship_up_to"
+      | "logo_url"
+      | "slug"
+    >;
+    const schools: School[] = (data as ListRow[]).map((row) => ({
       id: row.id,
       name: row.name,
       country: row.country,
@@ -34,6 +44,7 @@ export async function GET() {
       tuitionUsd: row.tuition_usd,
       scholarshipUpTo: row.scholarship_up_to ?? undefined,
       logoUrl: row.logo_url ?? "",
+      slug: row.slug ?? undefined,
     }));
     return NextResponse.json({ schools });
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { schoolInputSchema } from "@/lib/validations";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { isAdminRequest } from "@/lib/admin-auth";
+import { slugify } from "@/lib/slug";
 import { schools as mockSchools } from "@/data/schools";
 
 /** GET /api/admin/schools — toàn bộ trường (kể cả inactive) cho CMS. */
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
         tuition_usd: s.tuitionUsd,
         scholarship_up_to: s.scholarshipUpTo ?? null,
         logo_url: s.logoUrl,
+        slug: s.slug ?? slugify(s.name),
         is_active: true,
       }));
       const { error } = await supabase.from("schools").insert(rows);
@@ -86,13 +88,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Slug bỏ trống → tự sinh từ tên trường (trang chi tiết /truong/[slug])
+    const row = { ...parsed.data, slug: parsed.data.slug ?? slugify(parsed.data.name) };
+
     const { data, error } = await supabase
       .from("schools")
-      .insert(parsed.data)
+      .insert(row)
       .select("*")
       .single();
 
     if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "Slug đã tồn tại — nhập slug khác cho trường này" },
+          { status: 409 }
+        );
+      }
       console.error("[api/admin/schools] POST:", error);
       return NextResponse.json({ error: "Không tạo được trường" }, { status: 500 });
     }

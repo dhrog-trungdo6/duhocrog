@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { STUDY_LEVELS } from "@/types";
 
 /** Số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx (9–10 số sau đầu số). */
 const VN_PHONE_REGEX = /^(0|\+84)(\d{9,10})$/;
@@ -59,13 +60,55 @@ export const eventInputSchema = z.object({
   is_active: z.boolean().optional().default(true),
 });
 
+/** URL tùy chọn: rỗng hoặc bắt đầu http(s):// */
+const optionalUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => v === "" || /^https?:\/\//i.test(v), "URL phải bắt đầu bằng http(s)://")
+  .optional()
+  .default("");
+
+/** Chương trình đào tạo — phần tử JSONB cột schools.programs (khớp type SchoolProgram). */
+export const schoolProgramSchema = z.object({
+  name: z.string().trim().min(2, "Tên chương trình tối thiểu 2 ký tự").max(200),
+  level: z.enum(STUDY_LEVELS),
+  tuitionUsd: z.number().int().min(0).max(200_000).optional(),
+  duration: z.string().trim().max(50).optional(),
+});
+
 export const schoolInputSchema = z.object({
   name: z.string().trim().min(2, "Tên trường tối thiểu 2 ký tự").max(200),
   country: z.string().min(2, "Chọn quốc gia"),
   province: z.string().min(2, "Chọn tỉnh bang/thành phố"),
-  level: z.enum(["thpt", "cao-dang", "dai-hoc", "sau-dai-hoc", "anh-ngu"]),
+  level: z.enum(STUDY_LEVELS),
   tuition_usd: z.number().int().min(0).max(200_000),
   scholarship_up_to: z.number().int().min(0).max(100).nullable().optional(),
   logo_url: z.string().trim().max(500).optional().default(""),
   is_active: z.boolean().optional().default(true),
+  // ── Trang chi tiết (migration #4) — đều optional, admin điền dần ──
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug chỉ gồm a-z, 0-9 và dấu gạch ngang")
+    .optional(), // bỏ trống → API tự sinh từ name (slugify)
+  description: z.string().trim().max(10_000).optional().default(""),
+  website_url: optionalUrl,
+  image_url: z.string().trim().max(500).optional().default(""),
+  video_url: z.string().trim().max(500).optional().default(""),
+  gallery_urls: z.array(z.string().trim().min(1).max(500)).max(20).optional().default([]),
+  highlights: z.array(z.string().trim().min(1).max(300)).max(12).optional().default([]),
+  programs: z.array(schoolProgramSchema).max(50).optional().default([]),
+  requirements: z
+    .array(
+      z.object({
+        category: z.string().trim().min(1).max(100),
+        items: z.array(z.string().trim().min(1).max(300)).max(20),
+      }),
+    )
+    .max(10)
+    .optional()
+    .default([]),
 });

@@ -91,9 +91,16 @@ Lead.utm_source / utm_medium / utm_campaign → text nullable
 
 // ── schools (SchoolFinder — fetch /api/schools, fallback mock vì bảng trống) ──
 School.level          → 'thpt' | 'cao-dang' | 'dai-hoc' | 'sau-dai-hoc' | 'anh-ngu'
+                        (nguồn chuẩn: STUDY_LEVELS trong types — Zod enum cũng dùng)
 School.tuitionUsd     → number (filter slider $0–$60,000, step $1,000)
 School.scholarshipUpTo → number? (% học bổng — sort DESC ưu tiên, rồi tuition ASC)
 School.province       → Province['code'] dạng '{country}-{city}': 'us-ca', 'au-nsw'
+// Trang chi tiết /truong/[slug] (migration #4 — CHƯA có trang, DB đã sẵn):
+School.slug           → string? unique (partial index) — admin API tự sinh từ name (lib/slug.ts)
+School.description / websiteUrl / imageUrl / videoUrl / galleryUrls → nội dung chi tiết
+School.highlights     → string[] (jsonb) — bullet điểm nổi bật
+School.programs       → SchoolProgram[] (jsonb): {name, level, tuitionUsd?, duration?}
+School.requirements   → DocumentRequirement[] (jsonb): {category, items[]} — tái dùng type visa
 
 // ── events (EventsTabs) ──────────────────────────────────────
 EventItem.startsAt    → ISO 8601 — status upcoming/past DERIVE từ ngày, không lưu cột status
@@ -234,7 +241,8 @@ src/
 supabase/migrations/
 ├── 20260708000001_initial_schema.sql   ← leads+events+schools+RLS — ✅ đã apply cloud
 ├── 20260708000002_leads_note.sql       ← cột leads.note — ✅ đã apply cloud
-└── 20260709000003_lead_activities.sql  ← bảng nhật ký chăm sóc — ✅ đã apply cloud
+├── 20260709000003_lead_activities.sql  ← bảng nhật ký chăm sóc — ✅ đã apply cloud
+└── 20260710000004_school_details.sql   ← cột trang trường chi tiết + slug unique — ⚠️ CHƯA apply cloud
 ```
 
 ---
@@ -282,6 +290,8 @@ Tin tức → #news
 
 - [x] Migration #2 (cột `leads.note`) — ✅ ĐÃ APPLY cloud (2026-07-09, user chạy Dashboard)
 - [x] Migration #3 (bảng `lead_activities`) — ✅ ĐÃ APPLY cloud (2026-07-09, user chạy Dashboard; verify REST 200)
+- [ ] **Migration #4 CHƯA apply cloud** — `20260710000004_school_details.sql` (cột trang trường chi tiết + slug): chạy Dashboard → SQL Editor. ⚠️ Trước khi apply, admin SchoolsTab tạo/sửa trường sẽ lỗi (Zod đã gửi cột mới); `/api/schools` cũng select `slug`
+- [ ] Trang `/truong/[slug]` chưa xây — DB + types + Zod + slug đã sẵn (phiên #8)
 - [ ] Lead test `"TEST Claude production - xoá sau"` trong bảng leads — xóa qua Supabase Dashboard
 - [ ] Thông tin thương hiệu `src/config/site.ts` vẫn placeholder toàn bộ
 - [ ] Ảnh placeholder: hero, hexagon quốc gia, logo trường, minh chứng visa
@@ -289,9 +299,9 @@ Tin tức → #news
 
 ### Next Steps (làm ngay khi mở phiên mới)
 
-1. **Nhập dữ liệu events/schools thật qua `/admin`** — bảng đang trống, homepage vẫn hiện mock
-2. **Điền thông tin thương hiệu thật** vào `src/config/site.ts` + xóa lead test trên Supabase Dashboard
-3. **Ảnh thật** thay placeholder (hero, hexagon quốc gia, logo trường) — hoặc tích hợp Resend cho luồng kép email
+1. **Apply migration #4** trên Supabase Dashboard (school_details) — trước khi dùng SchoolsTab tạo/sửa trường
+2. **Xây trang trường chi tiết `/truong/[slug]`** — schema/types/Zod/slug đã sẵn; card kết quả /tim-truong link theo `school.slug`
+3. **Nhập dữ liệu events/schools thật qua `/admin`** + điền thông tin thương hiệu `src/config/site.ts` + xóa lead test
 
 ### Change Log
 

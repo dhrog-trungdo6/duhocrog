@@ -1,10 +1,13 @@
-/** Bậc học hỗ trợ trong bộ lọc tìm trường */
-export type StudyLevel =
-  | "thpt"
-  | "cao-dang"
-  | "dai-hoc"
-  | "sau-dai-hoc"
-  | "anh-ngu";
+/** Bậc học hỗ trợ trong bộ lọc tìm trường — nguồn chuẩn cho cả Zod enum */
+export const STUDY_LEVELS = [
+  "thpt",
+  "cao-dang",
+  "dai-hoc",
+  "sau-dai-hoc",
+  "anh-ngu",
+] as const;
+
+export type StudyLevel = (typeof STUDY_LEVELS)[number];
 
 export const STUDY_LEVEL_LABELS: Record<StudyLevel, string> = {
   thpt: "THPT",
@@ -70,6 +73,14 @@ export interface University {
   logoUrl?: string;
 }
 
+/** Chương trình đào tạo trên trang trường chi tiết — lưu JSONB cột schools.programs */
+export interface SchoolProgram {
+  name: string; // "Computer Science (BSc)"
+  level: StudyLevel;
+  tuitionUsd?: number; // học phí riêng nếu khác mức chung của trường
+  duration?: string; // "4 năm", "18 tháng"
+}
+
 export interface School {
   id: string;
   name: string;
@@ -79,6 +90,16 @@ export interface School {
   tuitionUsd: number; // học phí tham khảo / năm
   scholarshipUpTo?: number; // % học bổng cao nhất, nếu có
   logoUrl: string;
+  // ── Trang chi tiết /truong/[slug] — migration #4, đều optional ──
+  slug?: string;
+  description?: string; // giới thiệu trường
+  websiteUrl?: string;
+  imageUrl?: string; // ảnh cover/hero
+  videoUrl?: string; // YouTube embed
+  galleryUrls?: string[];
+  highlights?: string[]; // bullet điểm nổi bật
+  programs?: SchoolProgram[];
+  requirements?: DocumentRequirement[]; // tái dùng type {category, items[]} của trang visa
 }
 
 export interface Stat {
@@ -242,4 +263,14 @@ export interface SchoolRow {
   logo_url: string | null;
   is_active: boolean;
   created_at: string;
+  // ── Trang chi tiết — cột migration #4 (null khi cloud chưa apply) ──
+  slug: string | null;
+  description: string | null;
+  website_url: string | null;
+  image_url: string | null;
+  video_url: string | null;
+  gallery_urls: string[] | null;
+  highlights: string[] | null; // jsonb
+  programs: SchoolProgram[] | null; // jsonb
+  requirements: DocumentRequirement[] | null; // jsonb
 }
