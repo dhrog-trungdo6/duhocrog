@@ -111,4 +111,45 @@ export const schoolInputSchema = z.object({
     .max(10)
     .optional()
     .default([]),
+  // ── Migration #5 — Quick Facts + Rich Content Sections ──
+  founded_year: z.number().int().min(1800).max(2100).optional(),
+  school_type: z.string().trim().max(50).optional(),
+  total_students: z.number().int().min(0).max(1_000_000).optional(),
+  intakes: z.array(z.string().trim().min(1).max(50)).max(12).optional().default([]),
+  map_embed_url: z.string().trim().max(1000).optional().default(""),
+  content_sections: z.array(z.lazy(() => schoolSectionSchema)).max(30).optional().default([]),
 });
+
+// ── Rich School Sections (Migration #5 — Zod Discriminated Union) ─
+
+export const htmlSectionSchema = z.object({
+  type: z.literal("html"),
+  title: z.string().trim().min(1, "Tiêu đề section không được trống").max(200),
+  content: z.string().trim().min(1, "Nội dung HTML không được trống").max(50_000),
+});
+
+export const listSectionSchema = z.object({
+  type: z.literal("list"),
+  title: z.string().trim().min(1, "Tiêu đề section không được trống").max(200),
+  items: z.array(z.string().trim().min(1).max(300)).max(50),
+});
+
+/** Bảng động: headers = tên cột, rows = mảng record {key: value} */
+const tableRowSchema: z.ZodType<Record<string, string>> = z.record(
+  z.string(),
+  z.string().trim().max(500),
+);
+
+export const tableSectionSchema = z.object({
+  type: z.literal("table"),
+  title: z.string().trim().min(1, "Tiêu đề section không được trống").max(200),
+  headers: z.array(z.string().trim().min(1).max(100)).max(20),
+  rows: z.array(tableRowSchema).max(200),
+});
+
+/** SchoolSection = HtmlSection | ListSection | TableSection */
+export const schoolSectionSchema = z.discriminatedUnion("type", [
+  htmlSectionSchema,
+  listSectionSchema,
+  tableSectionSchema,
+]);

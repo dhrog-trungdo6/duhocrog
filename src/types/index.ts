@@ -100,7 +100,41 @@ export interface School {
   highlights?: string[]; // bullet điểm nổi bật
   programs?: SchoolProgram[];
   requirements?: DocumentRequirement[]; // tái dùng type {category, items[]} của trang visa
+  // ── Migration #5 — Quick Facts + Rich Content Sections ──
+  foundedYear?: number;
+  schoolType?: string;
+  totalStudents?: number;
+  intakes?: string[];
+  mapEmbedUrl?: string;
+  contentSections?: SchoolSection[];
 }
+
+// ── Rich School Sections (Migration #5 — Discriminated Union) ─
+
+export interface HtmlSection {
+  type: "html";
+  title: string; // "Tổng quan", "Đời sống sinh viên"...
+  content: string; // HTML string — render bằng dangerouslySetInnerHTML ở trang chi tiết
+}
+
+export interface ListSection {
+  type: "list";
+  title: string; // "Các ngành học nổi bật", "Điểm mạnh"...
+  items: string[]; // Mảng các mục gạch đầu dòng
+}
+
+export interface TableRow {
+  [key: string]: string; // key = tên cột, value = giá trị ô
+}
+
+export interface TableSection {
+  type: "table";
+  title: string; // "Yêu cầu đầu vào", "Chi phí"...
+  headers: string[]; // ["Tên chương trình", "GPA", "IELTS", "TOEFL"]
+  rows: TableRow[]; // [{ Tên chương trình: "...", GPA: "3.0", IELTS: "6.5", TOEFL: "79" }]
+}
+
+export type SchoolSection = HtmlSection | ListSection | TableSection;
 
 export interface Stat {
   id: string;
