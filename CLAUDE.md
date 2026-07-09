@@ -67,6 +67,20 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 
 ---
 
+## Bộ 5 Skill cốt lõi (ruleset chi tiết — `.claude/rules/`)
+
+> Chia nhỏ 8 nguyên tắc + tech stack thành ruleset chuyên đề. Nội dung được nạp qua import bên dưới.
+> ⚠️ 2 điểm đã sửa so với template ngoài: dự án **KHÔNG dùng Zustand** và **KHÔNG dùng @supabase/ssr**
+> (kiến trúc thật: getSupabaseAdmin() service-role + cookie admin tự quản).
+
+@.claude/rules/01-nextjs-app-router.md
+@.claude/rules/02-ui-tailwind.md
+@.claude/rules/03-typescript-zod.md
+@.claude/rules/04-supabase-rls.md
+@.claude/rules/05-architecture-patch.md
+
+---
+
 ## Database Schema (Supabase PostgreSQL)
 
 | # | Migration | Bảng/Cột | Trạng thái Cloud |
