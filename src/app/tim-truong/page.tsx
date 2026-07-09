@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { GraduationCap, Percent, SearchX } from "lucide-react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -33,7 +33,7 @@ function buildProvinceOptions(): ProvinceFilterOption[] {
   }));
 }
 
-export default function TimTruongPage() {
+function TimTruongContent() {
   const searchParams = useSearchParams();
   const initialCountry = searchParams.get("country") ?? "";
 
@@ -214,5 +214,20 @@ export default function TimTruongPage() {
         )}
       </section>
     </main>
+  );
+}
+
+// useSearchParams() bắt buộc có Suspense boundary khi prerender static (Next.js 14)
+export default function TimTruongPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </main>
+      }
+    >
+      <TimTruongContent />
+    </Suspense>
   );
 }
