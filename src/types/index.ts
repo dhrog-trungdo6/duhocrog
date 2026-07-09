@@ -150,6 +150,32 @@ export interface EventRow {
   created_at: string;
 }
 
+// ── School Filter ───────────────────────────────────────────────────
+
+export interface FilterOption {
+  label: string;
+  value: string;
+}
+
+export interface ProvinceFilterOption {
+  label: string;
+  value: string;
+  countryValue: string;
+}
+
+export interface FilterState {
+  country: string;
+  province: string;
+  level: string;
+  tuitionRange: [number, number];
+}
+
+export interface SchoolFilterProps {
+  onSearch: (filters: Omit<FilterState, "level"> & { level: string }) => void;
+  countries: FilterOption[];
+  provinces: ProvinceFilterOption[];
+}
+
 // ── Services / Visa ─────────────────────────────────────────────────
 
 export interface ServiceMenuItem {

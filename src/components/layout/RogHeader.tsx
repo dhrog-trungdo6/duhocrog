@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { label: "Du học", href: "#destinations" },
   { label: "DỊCH VỤ", href: "#", hasDropdown: true },
   { label: "Tiếng Anh", href: "#" },
-  { label: "Tuyển sinh", href: "#school-finder" },
+  { label: "Tuyển sinh", href: "/tim-truong" },
   { label: "Tin tức", href: "#news" },
 ] as const;
 
