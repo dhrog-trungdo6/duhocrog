@@ -46,7 +46,7 @@ Primary Blue:  #005BAA   ← header nav, section titles (khai báo tailwind: pri
 Light Blue:    #0078D7   ← hover state (primary-light)
 Dark Blue:     #004A8C   ← gradient SchoolFinder (primary-dark)
 Accent Red:    #DC2626   ← hotline, CTA, badge học bổng (accent) — theo mẫu thinkEDU
-Accent Orange: #FF6B00   ← **v1.4.0** — giá tiền, hover sub-link trong dropdown (accent-orange)
+Accent Orange: #FF6B00   ← v1.4.0: giá tiền, hover sub-link trong dropdown (accent-orange)
 Navy:          #0B2545   ← footer, testimonial section (navy)
 ```
 
@@ -105,6 +105,10 @@ LeadFormData = { fullName: string; phone: string; country: string }
 // ── Services/Visa (v1.4.0) ───────────────────────────────────
 ServiceMenuItem, VisaType, VisaProcessStep, DocumentRequirement,
 PricingItem, FAQItem — full type trong src/types/index.ts
+
+// ── School Filter (v1.5.0) ────────────────────────────────────
+FilterOption, ProvinceFilterOption, FilterState, SchoolFilterProps —
+dùng cho component SchoolFilter (props-driven, không fetch/Supabase)
 ```
 
 ### Bảng → TypeScript type mapping
@@ -121,17 +125,20 @@ PricingItem, FAQItem — full type trong src/types/index.ts
 
 | Module | File chính | Ghi chú |
 |--------|-----------|---------|
-| ⭐ **SchoolFinder** (lõi) | `src/components/home/SchoolFinder.tsx` | Cascading select quốc gia→tỉnh bang (`useMemo` derive, reset khi đổi country) + dual-handle Slider học phí + client-side filter (phương án A). Nâng cấp: phương án B `router.push('/tim-truong?...')` khi có trang riêng |
+| ⭐ **SchoolFinder** (lõi) | `src/components/home/SchoolFinder.tsx` | Cascading select quốc gia→tỉnh bang (`useMemo` derive, reset khi đổi country) + dual-handle Slider học phí + client-side filter (phương án A). |
 | FloatingCTA | `src/components/layout/FloatingCTA.tsx` | 3 nút Zalo/Hotline/Đăng ký — dọc trái desktop, ngang đáy mobile, collapse được, modal tái sử dụng LeadForm |
 | LeadForm | `src/components/home/LeadForm.tsx` | Dùng chung WhyChooseUs (variant dark) + FloatingCTA modal (variant light); prop `source` đo kênh |
-| Destination Hub | `src/components/home/StudyDestinations.tsx` | 12 quốc gia, clip-path lục giác, hover scale-110. Ảnh = gradient+emoji placeholder |
+| Destination Hub | `src/components/home/StudyDestinations.tsx` | 12 quốc gia, clip-path lục giác, hover scale-110. Ảnh = gradient+emoji placeholder. **v1.5.0**: link → `/tim-truong?country={code}` |
 | StatsCounter | `src/components/home/StatsCounter.tsx` | IntersectionObserver, đếm 1 lần, easeOutCubic |
 | EventsTabs | `src/components/home/EventsTabs.tsx` | Tab sắp/đã diễn ra + empty state "Không có sự kiện nào!" |
 | TestimonialCarousel | `src/components/home/TestimonialCarousel.tsx` | Nền navy, prev/next, nút "Danh sách visa thành công" (href="#" chờ trang) |
-| RogHeader / RogFooter | `src/components/layout/` | Footer có SVG inline Facebook/YouTube/TikTok (lucide đã gỡ brand icons). **v1.4.0**: Thêm dropdown "DỊCH VỤ" (hover desktop + accordion mobile) |
+| RogHeader / RogFooter | `src/components/layout/` | Footer có SVG inline Facebook/YouTube/TikTok (lucide đã gỡ brand icons). **v1.5.0**: 2 dropdown: "DU HỌC" (12 nước → /tim-truong?country=) + "DỊCH VỤ" (visa, gia hạn...) — cả 2 đều hover desktop + accordion mobile. **v1.5.0**: "Tìm Trường" thay "Tiếng Anh" → `/tim-truong` |
 | 🆕 **Dịch vụ Visa** (v1.4.0) | `src/app/dich-vu/visa/page.tsx` | Trang landing 10 section: breadcrumb → title+tabs → hero placeholder → Service Cards (3 cột) → Country Badges → 2 cột "Tại sao chọn ROG" + ảnh → Timeline quy trình → Table hồ sơ → Table chi phí → FAQ Accordion → Bottom CTA |
-| 🆕 **Service Components** (v1.4.0) | `src/components/services/` | 5 component: `ServiceTabs` (tab ngang scroll), `ServiceCard` (card ảnh + features), `CountryBadges` (flag tròn gradient), `DataTable` (bảng alternating row), `FaqAccordion` (accordion ChevronDown) |
-| 🆕 **Services Data** (v1.4.0) | `src/data/services.ts` | Mock data: serviceMenuData (cho dropdown), visaTypes (Du học/Du lịch/Thăm thân), visaProcessSteps (5 bước), documentRequirements (4 nhóm), visaPricing (7 mục), whyChooseRogVisa (7 lý do), visaFAQs (6 câu hỏi) |
+| 🆕 **Service Components** (v1.4.0) | `src/components/services/` | 5 component: `ServiceTabs`, `ServiceCard`, `CountryBadges`, `DataTable`, `FaqAccordion` |
+| 🆕 **Services Data** (v1.4.0) | `src/data/services.ts` | Mock data: serviceMenuData, visaTypes, visaProcessSteps, documentRequirements, visaPricing, whyChooseRogVisa, visaFAQs |
+| 🆕 **SchoolFilter** (v1.5.0) | `src/components/schools/SchoolFilter.tsx` | Banner lọc trường (nền primary-dark): 3 dropdown cascading + dual-handle slider $0-$60K + badge giá trị bám thumb + nút "Tìm trường". Presentational — nhận countries/provinces/onSearch props |
+| 🆕 **Trang Tìm Trường** (v1.5.0) | `src/app/tim-truong/page.tsx` | Breadcrumb + SchoolFilter banner + grid kết quả 3 cột (tên, địa điểm, học phí, badge học bổng, empty state). Hiển thị tất cả trường mặc định, hỗ trợ `?country=` query param |
+| 🆕 **Dropdown DU HỌC** (v1.5.0) | `src/data/destinations.ts` | `studyAbroadMenuData`: 12 nước → `/tim-truong?country=xx` |
 
 ---
 
@@ -142,7 +149,7 @@ PricingItem, FAQItem — full type trong src/types/index.ts
 | `/api/leads` | POST | ✅ v1.0.0 | Zod + honeypot `website_hp`; 400 chi tiết; 503 thiếu env; **201 đã verify trên Supabase thật** |
 | `/api/leads` | GET | ✅ v1.3.0 | Admin only; filter `?status= ?source= ?q= ?page= ?limit=`; `?withCounts=1` → đếm toàn cục theo trạng thái (head query) |
 | `/api/leads/[id]` | PATCH | ✅ v1.2.0 | Admin only; `status` và/hoặc `note`; đổi status tự ghi nhật ký `status_change` (best-effort) |
-| `/api/leads/[id]/activities` | GET+POST | ✅ v1.0.0 | Nhật ký chăm sóc (note/call/email/status_change/other); ⚠️ cần migration #3; 42P01/PGRST205→báo hướng dẫn |
+| `/api/leads/[id]/activities` | GET+POST | ✅ v1.0.0 | Nhật ký chăm sóc (note/call/email/status_change/other); migration #3 đã apply |
 | `/api/events` | GET | ✅ v1.0.0 | Public; `is_active=true`; revalidate 300s; lỗi/thiếu env → `{events:[]}` |
 | `/api/schools` | GET | ✅ v1.0.0 | Public; `is_active=true`; lỗi/thiếu env → `{schools:[]}` |
 | `/api/admin/login` | POST | ✅ v1.0.0 | So `ADMIN_PASSWORD` → set cookie `admin_session` (SHA-256) |
@@ -163,7 +170,7 @@ GitHub  : https://github.com/dhrog-trungdo6/duhocrog.git (branch: main) ✅ ĐÃ
           Push dùng: git -c credential.helper='!gh auth git-credential' push
           (keychain osxkeychain vẫn lưu `trungdotest8` cho dự án Nam Ngân — KHÔNG xóa)
 Vercel  : ✅ ĐÃ LINK — có `.vercel/repo.json`; `.env.local` có VERCEL_OIDC_TOKEN (đã `vercel env pull`)
-Supabase: ✅ ĐÃ KẾT NỐI — migration initial_schema đã apply; bảng leads có 1 lead test
+Supabase: ✅ ĐÃ KẾT NỐI — migration #1, #2, #3 đã apply cloud; bảng leads có 1 lead test
           ("TEST Claude production - xoá sau" — cần xóa qua Dashboard, app không có nút xóa lead)
           Bảng events/schools còn TRỐNG → FE đang fallback mock
 Resend  : ❌ chưa dùng (TODO luồng kép notification)
@@ -206,7 +213,8 @@ src/
 │   ├── page.tsx           ← Hero → Destinations → Stats → WhyChooseUs → Events → News → SchoolFinder → Testimonial → Partners
 │   ├── admin/             ← Admin CRM (3 tab Leads/Events/Schools) + admin/login
 │   ├── crm/               ← alias redirect về /admin
-│   ├── dich-vu/visa/      ← 🆕 v1.4.0: Trang Dịch vụ Visa (10 section)
+│   ├── dich-vu/visa/      ← v1.4.0: Trang Dịch vụ Visa (10 section)
+│   ├── tim-truong/        ← v1.5.0: Trang Tìm trường & Học bổng (SchoolFilter + results grid)
 │   └── api/               ← leads (+[id], activities), events, schools, admin (login/logout/events/schools)
 ├── middleware.ts          ← Edge guard /admin/* — cookie admin_session (Web Crypto)
 ├── components/
@@ -214,14 +222,15 @@ src/
 │   ├── layout/            ← RogHeader, RogFooter, FloatingCTA
 │   ├── home/              ← 9 sections + LeadForm
 │   ├── admin/             ← LeadsTab, EventsTab, SchoolsTab
-│   └── services/          ← 🆕 v1.4.0: ServiceTabs, ServiceCard, CountryBadges, DataTable, FaqAccordion
+│   ├── services/          ← v1.4.0: ServiceTabs, ServiceCard, CountryBadges, DataTable, FaqAccordion
+│   └── schools/           ← v1.5.0: SchoolFilter (presentational, dùng Radix Slider trực tiếp)
 ├── config/site.ts         ← ⚠️ thông tin thương hiệu (placeholder)
-├── data/                  ← destinations, schools, news, events, stats, partners, testimonials, 🆕 services (mock typed)
+├── data/                  ← destinations (v1.5.0: +studyAbroadMenuData), schools, news, events, stats, partners, testimonials, services (v1.4.0: mock typed)
 ├── lib/
 │   ├── supabase/admin.ts  ← getSupabaseAdmin() — null-safe khi thiếu env
 │   ├── admin-auth.ts      ← isAdminRequest() (Node crypto) — cùng công thức token với middleware
 │   └── validations.ts     ← leadFormSchema + eventInputSchema + schoolInputSchema (Zod)
-└── types/index.ts         ← toàn bộ interfaces (🆕 v1.4.0: +6 types cho Services/Visa)
+└── types/index.ts         ← toàn bộ interfaces (v1.5.0: +6 Services/Visa + 4 SchoolFilter/FilterOption)
 supabase/migrations/
 ├── 20260708000001_initial_schema.sql   ← leads+events+schools+RLS — ✅ đã apply cloud
 ├── 20260708000002_leads_note.sql       ← cột leads.note — ✅ đã apply cloud
@@ -244,11 +253,24 @@ supabase/migrations/
 | ⭐ SchoolFinder | ✅ v1.1.0 | fetch `/api/schools` fallback mock; cascading + dual slider + sort học bổng |
 | EventsTabs | ✅ v1.1.0 | fetch `/api/events` fallback mock; empty state đúng mẫu thinkEDU |
 | Lead Capture API | ✅ v1.1.0 | `/api/leads` POST (201 verify Supabase thật) + GET admin |
-| Admin CRM | ✅ v1.0.0 — ĐÃ COMMIT + PUSH (`b615f0f`, `0c2cace`) | `/admin` 3 tab Leads/Events/Schools + `/admin/login` + alias `/crm`; `src/components/admin/` |
+| Admin CRM | ✅ v1.0.0 — ĐÃ COMMIT + PUSH | `/admin` 3 tab Leads/Events/Schools + `/admin/login` + alias `/crm`; `src/components/admin/` |
 | Admin Auth | ✅ v1.0.0 — ĐÃ COMMIT + PUSH | `src/middleware.ts` (Edge) + `src/lib/admin-auth.ts` (Node) — cookie `admin_session` |
 | 🆕 Dịch vụ Visa (v1.4.0) | ✅ ĐÃ COMMIT + PUSH | `src/app/dich-vu/visa/page.tsx` + 5 components + `src/data/services.ts` + types + tailwind config |
+| 🆕 SchoolFilter + Tìm Trường (v1.5.0) | ✅ ĐÃ COMMIT + PUSH | `src/components/schools/SchoolFilter.tsx` + `src/app/tim-truong/page.tsx` + dropdown DU HỌC (12 nước) + StudyDestinations links + 4 types mới |
 | Supabase schema | ✅ ĐÃ APPLY cloud (#1, #2, #3) | bảng leads có 1 lead test; events/schools trống |
-| GitHub push | ✅ UP TO DATE | origin/main = e99b8bd (docs CLAUDE.md phiên #6); working tree clean |
+| GitHub push | ✅ UP TO DATE | origin/main = `c0c20c6` (phiên #7 — SchoolFilter + DU HỌC dropdown v1.5.0) |
+
+### Header NAV_ITEMS hiện tại (v1.5.0)
+
+```
+Trang chủ → /
+Về chúng tôi → #
+DU HỌC ▼ (12 nước → /tim-truong?country=xx)
+DỊCH VỤ ▼ (Visa, Gia hạn, Bảo hiểm, Dịch thuật, Luyện phỏng vấn → /dich-vu/visa)
+Tìm Trường → /tim-truong
+Tuyển sinh → #school-finder
+Tin tức → #news
+```
 
 ### Đã test thực tế (2026-07-08, production server :3111)
 
@@ -275,6 +297,7 @@ supabase/migrations/
 
 | Ngày | Giai đoạn | Thay đổi |
 |------|-----------|---------|
+| 2026-07-09 | Phiên #7 — SchoolFilter + DU HỌC dropdown v1.5.0 | SchoolFilter component (props-driven, Radix Slider trực tiếp); Trang `/tim-truong` hiển thị tất cả trường mặc định + `?country=`; Dropdown "DU HỌC" 12 nước trong RogHeader; StudyDestinations link → `/tim-truong?country=`; Đổi "Tiếng Anh" → "Tìm Trường"; Sửa DỊCH VỤ sub-links; +4 types (FilterOption, ProvinceFilterOption, FilterState, SchoolFilterProps); studyAbroadMenuData |
 | 2026-07-09 | Phiên #6 — Dịch vụ Visa v1.4.0 | Dropdown "DỊCH VỤ" trong RogHeader (desktop hover + mobile accordion); Trang `/dich-vu/visa` 10 section; 5 UI components (ServiceTabs, ServiceCard, CountryBadges, DataTable, FaqAccordion); Mock data services.ts; +6 types; Thêm accent-orange #FF6B00 vào tailwind config |
 | 2026-07-09 | Phiên #5 — CRM 2 cột kiểu Nam Ngân | Panel chi tiết + nhật ký chăm sóc (migration #3); stats toàn cục click-để-lọc; nút gọi/Zalo; /crm alias; auto-log status_change server-side |
 | 2026-07-09 | Phiên #4 — CRM quản lý thông tin | LeadsTab: tìm kiếm ?q (tên/SĐT), lọc nguồn, ghi chú note/lead (migration #2 ✅ cloud), xuất Excel CSV BOM |
