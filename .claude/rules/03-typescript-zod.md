@@ -10,6 +10,11 @@
 - Form: BẮT BUỘC `react-hook-form` + `zodResolver` cho mọi form (Nguyên tắc #5).
 - API route (POST/PATCH): BẮT BUỘC validate request body bằng Zod schema trong
   `src/lib/validations.ts` TRƯỚC khi chạm database. Schema hiện có: leadFormSchema,
-  leadUpdateSchema, activityInputSchema, eventInputSchema, schoolInputSchema (+schoolProgramSchema).
+  leadUpdateSchema, activityInputSchema, eventInputSchema, schoolInputSchema
+  (+schoolProgramSchema, schoolFormSchema).
+- **Data Integrity Rule**: Never trust client data — body luôn nhận là `unknown` rồi
+  `safeParse`. Mọi thao tác Supabase bọc `try/catch`, lỗi trả JSON chuẩn có type
+  `{ error: string }` kèm status đúng (400 validate / 401 auth / 404 / 409 conflict /
+  500 hệ thống / 503 thiếu env) — không bao giờ để exception rơi ra ngoài route.
 - Logic dùng chung đặt trong `src/lib/` (schools.ts: searchSchools/useSchools/formatUsd;
   slug.ts: slugify) — không copy-paste giữa component.
