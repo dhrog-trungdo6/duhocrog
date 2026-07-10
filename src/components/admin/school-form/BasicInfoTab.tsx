@@ -110,6 +110,33 @@ export function BasicInfoTab() {
         </div>
       </div>
 
+      <div>
+        <label htmlFor="sf-website" className={labelClasses}>Website chính thức của trường</label>
+        <input
+          id="sf-website"
+          placeholder="https://www.royalholloway.ac.uk/"
+          {...register("website_url")}
+          className={inputClasses}
+        />
+        <FieldErr message={errors.website_url?.message} />
+      </div>
+
+      <div>
+        <label htmlFor="sf-map" className={labelClasses}>
+          Vị trí — Google Maps embed URL{" "}
+          <span className="font-normal text-slate-400">
+            (Maps → Chia sẻ → Nhúng bản đồ → copy src của iframe)
+          </span>
+        </label>
+        <input
+          id="sf-map"
+          placeholder="https://www.google.com/maps/embed?pb=..."
+          {...register("map_embed_url")}
+          className={inputClasses}
+        />
+        <FieldErr message={errors.map_embed_url?.message} />
+      </div>
+
       <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm font-semibold text-slate-700">
         <input type="checkbox" {...register("is_active")} className="h-4 w-4 accent-primary" />
         Hiển thị trên website (Active)

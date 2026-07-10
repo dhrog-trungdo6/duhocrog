@@ -243,6 +243,16 @@ export const schoolAdmissionRequirementsSchema = z.object({
 export const schoolEditFormSchema = schoolFormSchema.extend({
   slug: schoolInputSchema.shape.slug,
   logo_url: z.string().trim().max(500),
+  website_url: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === "" || /^https?:\/\//i.test(v), "URL phải bắt đầu bằng http(s)://"),
+  map_embed_url: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine((v) => v === "" || /^https?:\/\//i.test(v), "URL phải bắt đầu bằng http(s)://"),
   quick_facts: schoolQuickFactsSchema,
   cost_breakdown: z
     .object({

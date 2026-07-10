@@ -23,7 +23,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 /** Field nào thuộc tab nào — để hiện chấm đỏ khi tab có lỗi validate. */
 const TAB_FIELDS: Record<TabKey, (keyof SchoolEditFormValues)[]> = {
-  basic: ["name", "slug", "country", "province", "level", "logo_url", "is_active"],
+  basic: ["name", "slug", "country", "province", "level", "logo_url", "website_url", "map_embed_url", "is_active"],
   facts: ["tuition_usd", "scholarship_up_to", "quick_facts", "cost_breakdown"],
   content: ["content_sections"],
   automation: ["official_rss_url", "auto_sync_enabled"],
@@ -37,6 +37,8 @@ function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValue
       province: "",
       level: "dai-hoc",
       logo_url: "",
+      website_url: "",
+      map_embed_url: "",
       is_active: true,
       scholarship_up_to: null,
       quick_facts: {},
@@ -52,6 +54,8 @@ function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValue
     province: school.province,
     level: school.level,
     logo_url: school.logo_url ?? "",
+    website_url: school.website_url ?? "",
+    map_embed_url: school.map_embed_url ?? "",
     is_active: school.is_active,
     tuition_usd: school.tuition_usd,
     scholarship_up_to: school.scholarship_up_to,
@@ -107,6 +111,8 @@ export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalPro
         scholarship_up_to: data.scholarship_up_to,
         is_active: data.is_active,
         logo_url: data.logo_url,
+        website_url: data.website_url,
+        map_embed_url: data.map_embed_url,
         quick_facts: cleanQuickFacts(data.quick_facts),
         cost_breakdown: cleanCostBreakdown(data.cost_breakdown),
         content_sections: data.content_sections,

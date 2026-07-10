@@ -192,6 +192,44 @@ function SidebarCard({ tuitionUsd, scholarshipUpTo }: { tuitionUsd: number; scho
   );
 }
 
+/** Mục lục "Nội dung bài viết" — <details> gập/mở native, anchor tới id section. */
+function TableOfContents({ items }: { items: Array<{ id: string; label: string }> }) {
+  if (items.length < 3) return null;
+  return (
+    <details open className="rounded-xl border border-primary/15 bg-primary/5 px-5 py-4">
+      <summary className="cursor-pointer select-none text-center text-sm font-bold text-slate-800">
+        Nội dung bài viết <span className="font-normal text-primary">[ẩn/hiện]</span>
+      </summary>
+      <ol className="mt-3 space-y-1.5 text-sm">
+        {items.map((item, i) => (
+          <li key={item.id}>
+            <a href={`#${item.id}`} className="text-primary hover:text-primary-light hover:underline">
+              {i + 1}. {item.label}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
+/** Bản đồ vị trí — cột map_embed_url (migration #5). Chỉ nhận URL https. */
+function MapSection({ src, schoolName }: { src: string; schoolName: string }) {
+  return (
+    <section id="vi-tri" className="scroll-mt-24">
+      <SectionHeading icon={MapPin} title="Vị trí trên bản đồ" />
+      <iframe
+        src={src}
+        title={`Bản đồ ${schoolName}`}
+        loading="lazy"
+        allowFullScreen
+        referrerPolicy="no-referrer-when-downgrade"
+        className="h-[350px] w-full rounded-xl border border-gray-200 bg-white"
+      />
+    </section>
+  );
+}
+
 function SectionHeading({ icon: Icon, title }: { icon: typeof CheckCircle; title: string }) {
   return (
     <h2 className="mb-4 flex items-center gap-2.5 text-lg font-bold text-primary">
@@ -270,7 +308,7 @@ function QuickFactsCard({ school }: { school: School }) {
 /** Bảng chi phí — cột cost_breakdown (migration #7) */
 function CostBreakdownSection({ data }: { data: SchoolCostBreakdown }) {
   return (
-    <section>
+    <section id="chi-phi" className="scroll-mt-24">
       <SectionHeading icon={DollarSign} title="Học phí & chi phí" />
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
@@ -307,7 +345,7 @@ function CostBreakdownSection({ data }: { data: SchoolCostBreakdown }) {
 /** Bảng điều kiện nhập học — cột admission_requirements (migration #7) */
 function AdmissionRequirementsSection({ data }: { data: SchoolAdmissionRequirements }) {
   return (
-    <section>
+    <section id="dieu-kien-nhap-hoc" className="scroll-mt-24">
       <SectionHeading icon={CheckCircle} title="Điều kiện nhập học" />
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
@@ -337,9 +375,9 @@ function AdmissionRequirementsSection({ data }: { data: SchoolAdmissionRequireme
 }
 
 /** 1 section động — content_sections (migration #5, union html/list/table) */
-function ContentSectionBlock({ section }: { section: SchoolSection }) {
+function ContentSectionBlock({ section, id }: { section: SchoolSection; id?: string }) {
   return (
-    <section>
+    <section id={id} className="scroll-mt-24">
       <h2 className="mb-4 text-lg font-bold text-primary">{section.title}</h2>
       {section.type === "html" && (
         <div
@@ -404,6 +442,24 @@ export default async function SchoolDetailPage({
   const provinceName =
     provinces.find((p) => p.code === school.province)?.name ?? school.province;
 
+  // Bản đồ: chỉ nhận https (chống chèn src bẩn từ dữ liệu crawler)
+  const mapSrc =
+    school.mapEmbedUrl && /^https:\/\//i.test(school.mapEmbedUrl) ? school.mapEmbedUrl : null;
+
+  // Mục lục — theo đúng thứ tự render cột trái
+  const toc: Array<{ id: string; label: string }> = [];
+  if (school.description) toc.push({ id: "gioi-thieu", label: `Giới thiệu ${school.name}` });
+  if (school.highlights?.length) toc.push({ id: "diem-noi-bat", label: "Điểm nổi bật" });
+  if (school.programs?.length) toc.push({ id: "nganh-hoc", label: "Ngành học thế mạnh" });
+  if (school.costBreakdown?.rows.length) toc.push({ id: "chi-phi", label: "Học phí & chi phí" });
+  if (school.admissionRequirements?.rows.length)
+    toc.push({ id: "dieu-kien-nhap-hoc", label: "Điều kiện nhập học" });
+  if (school.requirements?.length) toc.push({ id: "yeu-cau-dau-vao", label: "Yêu cầu đầu vào" });
+  school.contentSections?.forEach((s, i) =>
+    toc.push({ id: `noi-dung-${i + 1}`, label: s.title })
+  );
+  if (mapSrc) toc.push({ id: "vi-tri", label: "Vị trí trên bản đồ" });
+
   return (
     <main className="min-h-screen bg-slate-50">
       <Breadcrumb name={school.name} />
@@ -456,9 +512,12 @@ export default async function SchoolDetailPage({
         <div className="grid gap-8 md:grid-cols-12">
           {/* ── Cột trái: Nội dung chi tiết ── */}
           <div className="space-y-10 md:col-span-8">
+            {/* Mục lục bài viết (như think.edu.vn) */}
+            <TableOfContents items={toc} />
+
             {/* Giới thiệu */}
             {school.description && (
-              <section>
+              <section id="gioi-thieu" className="scroll-mt-24">
                 <h2 className="mb-4 text-lg font-bold text-primary">Giới thiệu</h2>
                 <p className="text-sm leading-relaxed text-slate-700">
                   {school.description}
@@ -468,7 +527,7 @@ export default async function SchoolDetailPage({
 
             {/* Điểm nổi bật */}
             {school.highlights && school.highlights.length > 0 && (
-              <section>
+              <section id="diem-noi-bat" className="scroll-mt-24">
                 <SectionHeading icon={CheckCircle} title="Điểm nổi bật" />
                 <ul className="space-y-3">
                   {school.highlights.map((item, idx) => (
@@ -483,7 +542,7 @@ export default async function SchoolDetailPage({
 
             {/* Ngành học thế mạnh */}
             {school.programs && school.programs.length > 0 && (
-              <section>
+              <section id="nganh-hoc" className="scroll-mt-24">
                 <SectionHeading icon={BookOpen} title="Ngành học thế mạnh" />
                 <div className="grid gap-3 sm:grid-cols-2">
                   {school.programs.map((program, idx) => (
@@ -511,7 +570,7 @@ export default async function SchoolDetailPage({
 
             {/* Yêu cầu đầu vào */}
             {school.requirements && school.requirements.length > 0 && (
-              <section>
+              <section id="yeu-cau-dau-vao" className="scroll-mt-24">
                 <SectionHeading icon={CheckCircle} title="Yêu cầu đầu vào" />
                 <div className="space-y-4">
                   {school.requirements.map((req, idx) => (
@@ -533,8 +592,11 @@ export default async function SchoolDetailPage({
 
             {/* Nội dung chi tiết động — content_sections (migration #5, từ crawler/admin) */}
             {school.contentSections?.map((section, idx) => (
-              <ContentSectionBlock key={idx} section={section} />
+              <ContentSectionBlock key={idx} section={section} id={`noi-dung-${idx + 1}`} />
             ))}
+
+            {/* Vị trí trên bản đồ — map_embed_url (migration #5, sửa qua Tab Tổng quan) */}
+            {mapSrc && <MapSection src={mapSrc} schoolName={school.name} />}
           </div>
 
           {/* ── Cột phải: Sticky Sidebar ── */}
