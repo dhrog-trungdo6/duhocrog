@@ -124,6 +124,10 @@ export const schoolInputSchema = z.object({
   admission_requirements: z.lazy(() => schoolAdmissionRequirementsSchema).nullable().optional(),
   source_url: z.string().trim().max(1000).optional(),
   scraped_at: z.string().datetime({ offset: true }).optional(),
+  // ── Migration #9 — Automation config (rule 10). KHÔNG default: chỉ ghi khi
+  // client gửi, tránh lỗi column-not-exist lúc cloud chưa apply migration ──
+  official_rss_url: z.string().trim().max(500).optional(),
+  auto_sync_enabled: z.boolean().optional(),
 });
 
 /**
@@ -162,19 +166,17 @@ export const listSectionSchema = z.object({
   type: z.literal("list"),
   title: z.string().trim().min(1, "Tiêu đề section không được trống").max(200),
   // Max 500: bullet thực tế trên think.edu.vn dài hơn 300 ký tự (scrape-test 2026-07-10)
-  items: z.array(z.string().trim().min(1).max(500)).max(50),
+  items: z.array(z.string().trim().min(1, "Mục không được trống").max(500)).max(50),
 });
 
-/** Bảng động: headers = tên cột, rows = mảng record {key: value} */
-const tableRowSchema: z.ZodType<Record<string, string>> = z.record(
-  z.string(),
-  z.string().trim().max(500),
-);
+/** Bảng động: headers = tên cột, rows = mảng record {key: value}.
+ *  KHÔNG annotate z.ZodType<...> — làm z.input thành unknown, vỡ type zodResolver. */
+const tableRowSchema = z.record(z.string(), z.string().trim().max(500));
 
 export const tableSectionSchema = z.object({
   type: z.literal("table"),
   title: z.string().trim().min(1, "Tiêu đề section không được trống").max(200),
-  headers: z.array(z.string().trim().min(1).max(100)).max(20),
+  headers: z.array(z.string().trim().min(1, "Tên cột không được trống").max(100)).max(20),
   rows: z.array(tableRowSchema).max(200),
 });
 
@@ -201,7 +203,7 @@ export const schoolQuickFactsSchema = z.object({
 
 /** 1 hàng bảng chi phí — amountMax = amountMin khi giá trị đơn */
 export const costRowSchema = z.object({
-  label: z.string().trim().min(1).max(200),
+  label: z.string().trim().min(1, "Khoản mục không được trống").max(200),
   amountMin: z.number().min(0).nullable(),
   amountMax: z.number().min(0).nullable(),
   unit: z.string().trim().max(50), // 'CAD/năm'
@@ -229,3 +231,37 @@ export const schoolAdmissionRequirementsSchema = z.object({
   rows: z.array(admissionRowSchema).max(30),
   notes: z.string().trim().max(1000).optional(),
 });
+
+// ── Form admin nâng cao — SchoolFormModal 4 tab (v1.10.0, rule 10) ─────────
+// Đặt cuối file vì tham chiếu các schema JSONB phía trên.
+
+/**
+ * Mở rộng schoolFormSchema với slug/logo + JSONB (quick_facts, cost_breakdown,
+ * content_sections) + automation config. Component dùng setValueAs chuyển
+ * "" → undefined/null cho field số/optional trước khi Zod validate.
+ */
+export const schoolEditFormSchema = schoolFormSchema.extend({
+  slug: schoolInputSchema.shape.slug,
+  logo_url: z.string().trim().max(500),
+  quick_facts: schoolQuickFactsSchema,
+  cost_breakdown: z
+    .object({
+      currency: z.string().trim().max(10),
+      rows: z.array(costRowSchema).max(50),
+      totalEstimate: costRowSchema.optional(), // không render UI — passthrough giữ dữ liệu crawler
+    })
+    .superRefine((v, ctx) => {
+      if (v.rows.length > 0 && v.currency.trim() === "") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["currency"],
+          message: "Nhập đơn vị tiền (USD, CAD...) khi có hàng chi phí",
+        });
+      }
+    }),
+  content_sections: z.array(schoolSectionSchema).max(30),
+  official_rss_url: z.string().trim().max(500).optional(),
+  auto_sync_enabled: z.boolean(),
+});
+
+export type SchoolEditFormValues = z.infer<typeof schoolEditFormSchema>;

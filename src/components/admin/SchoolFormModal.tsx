@@ -1,90 +1,144 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { FormProvider, useForm, type DefaultValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { z } from "zod";
 import { Loader2, X } from "lucide-react";
-import type { SchoolFormModalProps, StudyLevel } from "@/types";
-import { STUDY_LEVEL_LABELS } from "@/types";
-import { destinations, provinces } from "@/data/destinations";
-import { schoolFormSchema } from "@/lib/validations";
+import type { SchoolFormModalProps, SchoolRow } from "@/types";
+import { schoolEditFormSchema, type SchoolEditFormValues } from "@/lib/validations";
 import { Button } from "@/components/ui/Button";
+import { BasicInfoTab } from "./school-form/BasicInfoTab";
+import { QuickFactsCostTab } from "./school-form/QuickFactsCostTab";
+import { ContentBuilderTab } from "./school-form/ContentBuilderTab";
+import { AutomationTab } from "./school-form/AutomationTab";
 
-type SchoolFormValues = z.infer<typeof schoolFormSchema>;
+const TABS = [
+  { key: "basic", label: "Tổng quan" },
+  { key: "facts", label: "Quick Facts & Chi phí" },
+  { key: "content", label: "Nội dung chi tiết" },
+  { key: "automation", label: "Automation" },
+] as const;
 
-const inputClasses =
-  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none";
+type TabKey = (typeof TABS)[number]["key"];
 
-const LEVELS = Object.entries(STUDY_LEVEL_LABELS) as [StudyLevel, string][];
+/** Field nào thuộc tab nào — để hiện chấm đỏ khi tab có lỗi validate. */
+const TAB_FIELDS: Record<TabKey, (keyof SchoolEditFormValues)[]> = {
+  basic: ["name", "slug", "country", "province", "level", "logo_url", "is_active"],
+  facts: ["tuition_usd", "scholarship_up_to", "quick_facts", "cost_breakdown"],
+  content: ["content_sections"],
+  automation: ["official_rss_url", "auto_sync_enabled"],
+};
+
+function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValues> {
+  if (!school) {
+    return {
+      name: "",
+      country: "",
+      province: "",
+      level: "dai-hoc",
+      logo_url: "",
+      is_active: true,
+      scholarship_up_to: null,
+      quick_facts: {},
+      cost_breakdown: { currency: "", rows: [] },
+      content_sections: [],
+      auto_sync_enabled: false,
+    };
+  }
+  return {
+    name: school.name,
+    slug: school.slug ?? undefined,
+    country: school.country,
+    province: school.province,
+    level: school.level,
+    logo_url: school.logo_url ?? "",
+    is_active: school.is_active,
+    tuition_usd: school.tuition_usd,
+    scholarship_up_to: school.scholarship_up_to,
+    quick_facts: school.quick_facts ?? {},
+    cost_breakdown: school.cost_breakdown ?? { currency: "", rows: [] },
+    content_sections: school.content_sections ?? [],
+    official_rss_url: school.official_rss_url ?? undefined,
+    auto_sync_enabled: school.auto_sync_enabled ?? false,
+  };
+}
+
+/** quick_facts: bỏ field rỗng; toàn bộ rỗng → null (không lưu object trống vào JSONB). */
+function cleanQuickFacts(qf: SchoolEditFormValues["quick_facts"]) {
+  const entries = Object.entries(qf).filter(
+    ([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
+/** cost_breakdown: không có hàng nào và không có totalEstimate → null. */
+function cleanCostBreakdown(cb: SchoolEditFormValues["cost_breakdown"]) {
+  return cb.rows.length === 0 && !cb.totalEstimate ? null : cb;
+}
 
 /**
- * Modal Thêm/Sửa trường — overlay Tailwind thuần, form react-hook-form + zodResolver.
- * Tạo mới → POST /api/admin/schools; sửa → PATCH /api/admin/schools/[id].
+ * Modal Thêm/Sửa trường v1.10.0 — 4 tab (rule 10: Advanced Admin CRUD).
+ * Shell: chrome modal + tab nav + submit; field UI nằm trong school-form/*Tab.
  */
 export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalProps) {
+  const [activeTab, setActiveTab] = useState<TabKey>("basic");
   const [serverError, setServerError] = useState<string | null>(null);
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<SchoolFormValues>({
-    resolver: zodResolver(schoolFormSchema),
-    defaultValues: school
-      ? {
-          name: school.name,
-          country: school.country,
-          province: school.province,
-          level: school.level,
-          tuition_usd: school.tuition_usd,
-          scholarship_up_to: school.scholarship_up_to,
-          is_active: school.is_active,
-        }
-      : { name: "", country: "", province: "", level: "dai-hoc", is_active: true },
+
+  const methods = useForm<SchoolEditFormValues>({
+    resolver: zodResolver(schoolEditFormSchema),
+    defaultValues: toDefaults(school),
   });
+  const {
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = methods;
 
-  const country = watch("country");
-  const provinceOptions = useMemo(
-    () => provinces.filter((p) => p.countryCode === country),
-    [country]
-  );
-  // Dữ liệu từ crawler có thể chứa country/province ngoài danh mục tĩnh — giữ giá trị cũ làm option
-  const countryUnknown =
-    school !== null && school.country !== "" && !destinations.some((d) => d.code === school.country);
-  const provinceUnknown =
-    school !== null &&
-    school.province !== "" &&
-    !provinces.some((p) => p.code === school.province);
+  const tabHasError = (tab: TabKey) => TAB_FIELDS[tab].some((f) => f in errors);
 
-  const onSubmit = async (data: SchoolFormValues) => {
+  const onSubmit = async (data: SchoolEditFormValues) => {
     setServerError(null);
     try {
+      const payload: Record<string, unknown> = {
+        name: data.name,
+        country: data.country,
+        province: data.province,
+        level: data.level,
+        tuition_usd: data.tuition_usd,
+        scholarship_up_to: data.scholarship_up_to,
+        is_active: data.is_active,
+        logo_url: data.logo_url,
+        quick_facts: cleanQuickFacts(data.quick_facts),
+        cost_breakdown: cleanCostBreakdown(data.cost_breakdown),
+        content_sections: data.content_sections,
+      };
+      if (data.slug) payload.slug = data.slug;
+      // Cột migration #9: chỉ gửi khi row đã có cột (sửa) hoặc user điền giá trị —
+      // tránh lỗi column-not-exist khi cloud chưa apply migration
+      const migration9Applied = school != null && school.auto_sync_enabled != null;
+      if (data.official_rss_url || migration9Applied) {
+        payload.official_rss_url = data.official_rss_url ?? "";
+      }
+      if (data.auto_sync_enabled || migration9Applied) {
+        payload.auto_sync_enabled = data.auto_sync_enabled;
+      }
+
       const response = await fetch(
         school ? `/api/admin/schools/${school.id}` : "/api/admin/schools",
         {
           method: school ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         }
       );
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error ?? "Không lưu được trường");
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Không lưu được trường");
       }
       onSaved();
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Lỗi mạng — thử lại.");
     }
   };
-
-  const fieldError = (message?: string) =>
-    message ? (
-      <p role="alert" className="mt-1 text-xs font-semibold text-accent">
-        {message}
-      </p>
-    ) : null;
 
   return (
     <div
@@ -95,10 +149,10 @@ export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalPro
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 id="school-modal-title" className="text-lg font-bold text-slate-800">
             {school ? `Sửa: ${school.name}` : "Thêm trường mới"}
           </h2>
@@ -112,131 +166,54 @@ export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalPro
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-3">
-          <div>
-            <label htmlFor="school-name" className="mb-1 block text-sm font-semibold text-slate-700">
-              Tên trường *
-            </label>
-            <input id="school-name" {...register("name")} className={inputClasses} />
-            {fieldError(errors.name?.message)}
-          </div>
-
-          <div>
-            <label htmlFor="school-country" className="mb-1 block text-sm font-semibold text-slate-700">
-              Quốc gia *
-            </label>
-            <select
-              id="school-country"
-              {...register("country", {
-                onChange: () => setValue("province", ""),
-              })}
-              className={inputClasses}
+        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4" aria-label="Tab chỉnh sửa trường">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
+                activeTab === tab.key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
             >
-              <option value="">— Chọn quốc gia —</option>
-              {countryUnknown && (
-                <option value={school.country}>{school.country} (từ crawler)</option>
+              {tab.label}
+              {tabHasError(tab.key) && (
+                <span
+                  className="absolute right-0.5 top-2 h-1.5 w-1.5 rounded-full bg-accent"
+                  aria-label="Tab có lỗi"
+                />
               )}
-              {destinations.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name.replace("Du học ", "")}
-                </option>
-              ))}
-            </select>
-            {fieldError(errors.country?.message)}
-          </div>
+            </button>
+          ))}
+        </nav>
 
-          <div>
-            <label htmlFor="school-province" className="mb-1 block text-sm font-semibold text-slate-700">
-              Tỉnh bang / Thành phố *
-            </label>
-            <select
-              id="school-province"
-              {...register("province")}
-              disabled={!country}
-              className={`${inputClasses} disabled:opacity-50`}
-            >
-              <option value="">— Chọn tỉnh bang —</option>
-              {provinceUnknown && school.country === country && (
-                <option value={school.province}>{school.province} (từ crawler)</option>
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+              <div className={activeTab === "basic" ? "" : "hidden"}><BasicInfoTab /></div>
+              <div className={activeTab === "facts" ? "" : "hidden"}><QuickFactsCostTab /></div>
+              <div className={activeTab === "content" ? "" : "hidden"}><ContentBuilderTab /></div>
+              <div className={activeTab === "automation" ? "" : "hidden"}><AutomationTab /></div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+              {serverError && (
+                <p role="alert" className="mr-auto text-sm font-semibold text-accent">
+                  {serverError}
+                </p>
               )}
-              {provinceOptions.map((p) => (
-                <option key={p.code} value={p.code}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            {fieldError(errors.province?.message)}
-          </div>
-
-          <div>
-            <label htmlFor="school-level" className="mb-1 block text-sm font-semibold text-slate-700">
-              Bậc học *
-            </label>
-            <select id="school-level" {...register("level")} className={inputClasses}>
-              {LEVELS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {fieldError(errors.level?.message)}
-          </div>
-
-          <div>
-            <label htmlFor="school-tuition" className="mb-1 block text-sm font-semibold text-slate-700">
-              Học phí USD/năm *
-            </label>
-            <input
-              id="school-tuition"
-              type="number"
-              min={0}
-              {...register("tuition_usd", {
-                setValueAs: (v: string) => (v === "" || v == null ? undefined : Number(v)),
-              })}
-              className={inputClasses}
-            />
-            {fieldError(errors.tuition_usd?.message)}
-          </div>
-
-          <div>
-            <label htmlFor="school-scholarship" className="mb-1 block text-sm font-semibold text-slate-700">
-              % học bổng tối đa
-            </label>
-            <input
-              id="school-scholarship"
-              type="number"
-              min={0}
-              max={100}
-              placeholder="Bỏ trống nếu không có"
-              {...register("scholarship_up_to", {
-                setValueAs: (v: string) => (v === "" || v == null ? null : Number(v)),
-              })}
-              className={inputClasses}
-            />
-            {fieldError(errors.scholarship_up_to?.message)}
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
-            <input type="checkbox" {...register("is_active")} className="h-4 w-4 accent-primary" />
-            Hiển thị trên website
-          </label>
-
-          {serverError && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-accent">
-              {serverError}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Hủy
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              Lưu
-            </Button>
-          </div>
-        </form>
+              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                Lưu
+              </Button>
+            </div>
+          </form>
+        </FormProvider>
       </div>
     </div>
   );

@@ -368,6 +368,9 @@ export interface SchoolRow {
   admission_requirements: SchoolAdmissionRequirements | null; // jsonb
   source_url: string | null;
   scraped_at: string | null;
+  // ── Migration #9 — Automation config (undefined khi cloud chưa apply) ──
+  official_rss_url?: string | null;
+  auto_sync_enabled?: boolean | null;
 }
 
 // ── Admin Schools CRUD (v1.9.0) ────────────────────────────────────
