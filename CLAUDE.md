@@ -92,6 +92,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 5 | `20260710000005` | `schools.*` — thêm 6 cột: `founded_year`, `school_type`, `total_students`, `intakes[]`, `map_embed_url`, `content_sections` (JSONB discriminated union: html/list/table) + GIN index | ✅ Applied |
 | 6 | `20260710000006` | Backfill data: gán `slug` cho 22 trường seed trước khi có logic slug (idempotent, chỉ update row null) | ✅ Đã chạy (verify 0 row slug null) |
 | 7 | `20260711000007` | `schools.*` — thêm 5 cột: `quick_facts`, `cost_breakdown`, `admission_requirements` (JSONB, Zod là nguồn chân lý) + `source_url`, `scraped_at` (audit crawler) | ✅ Applied (kiểm chứng scrape-test: `scripts/scrape-test/output/report.md`) |
+| 8 | `20260711000008` | Thay partial index `idx_schools_slug` bằng unique constraint `schools_slug_key` — mở khóa PostgREST `on_conflict=slug` (partial index làm mọi upsert REST trả 400) | ❌ CHƯA apply — chạy tay Dashboard khi tiện (crawl đã chạy OK bằng GET→PATCH/POST, không gấp) |
 
 ### Chi tiết từng bảng:
 
@@ -265,9 +266,14 @@ Resend  : ❌ chưa dùng
   render QuickFactsCard + CostBreakdown + AdmissionRequirements + content_sections (html sanitize)
 - [x] Backfill slug (#6) — ✅ Đã chạy (0 row slug null)
 - [x] Migration #7 (`school_rich_content`) — ✅ Applied (kiểm chứng scrape-test 3 trường, 0 lỗi Zod)
-- [ ] Crawler `scripts/crawler.ts` — CSS selectors đang là GIẢ ĐỊNH; selector THẬT đã có trong
-  `scripts/scrape-test/parsers.ts` (.detail-school-info, .page-content-area, #toc_container) — hợp nhất khi crawl thật
-- [ ] Crawl thật cần upsert `on_conflict=slug` — nhiều trường think.edu.vn trùng 22 row seed (ball-state, manchester, winchester)
+- [x] **Crawl thật — ✅ HOÀN THÀNH 38/38** (2026-07-10, `scripts/batch-crawl.ts` dùng parser thật
+  scrape-test, upsert 2 bước GET→PATCH/POST): 35 trường mới `is_active=false` chờ duyệt,
+  3 trường trùng seed (ball-state, manchester, winchester) được enrich dữ liệu giàu
+  (đã khôi phục `is_active=true` + logo sau sự cố lần chạy đầu đè cột)
+- [ ] **Migration #8 (`slug_unique_constraint`) — CHƯA apply**: chạy tay Dashboard (fix gốc lỗi 400
+  của `on_conflict=slug`; không gấp vì batch-crawl không còn dùng on_conflict)
+- [ ] **Duyệt 35 trường mới crawl** trong Admin SchoolsTab (`is_active=false`) → kiểm tra rồi bật active
+- [ ] `scripts/crawler.ts` cũ — selectors GIẢ ĐỊNH, đã bị `batch-crawl.ts` thay thế trên thực tế
 - [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
 - [ ] `src/config/site.ts` placeholder toàn bộ
 - [ ] Ảnh thật thay placeholder
@@ -275,15 +281,16 @@ Resend  : ❌ chưa dùng
 
 ### Next Steps (ưu tiên)
 
-1. **Crawl thật**: hợp nhất selector từ `scripts/scrape-test/parsers.ts` vào `scripts/crawler.ts`
-   + upsert `on_conflict=slug` (38 URL trong urls.json, nhiều trường trùng seed) → điền dữ liệu giàu vào DB
-2. **Xóa lead test** trên Supabase Dashboard (`delete from leads where full_name = 'TEST Claude production - xoá sau'`)
-3. **Điền thông tin thương hiệu** `src/config/site.ts` + ảnh thật thay placeholder
+1. **Duyệt 35 trường mới crawl** trong Admin (`is_active=false`) — kiểm tra dữ liệu rồi bật active
+2. **Apply migration #8** (`slug_unique_constraint`) trên Supabase Dashboard → SQL Editor
+3. **Xóa lead test** trên Supabase Dashboard (`delete from leads where full_name = 'TEST Claude production - xoá sau'`)
+4. **Điền thông tin thương hiệu** `src/config/site.ts` + ảnh thật thay placeholder
 
 ### Change Log
 
 | Ngày | Phiên | Thay đổi |
 |------|-------|---------|
+| 2026-07-10 | #12 — Crawl thật 38/38 + Migration #8 | Chẩn đoán lỗi 400 batch crawl: KHÔNG phải think.edu.vn (trả 200) mà là PostgREST `on_conflict=slug` không suy ra được partial index → viết migration #8 (unique constraint thường, CHƯA apply); `batch-crawl.ts` chuyển upsert 2 bước GET→PATCH/POST + nhánh UPDATE không đè cột phá seed (`is_active`/`logo_url`/`image_url`/basics rỗng) + `level` ưu tiên `entry.levels` từ urls.json; chạy crawl 38/38 OK (35 insert inactive, 3 update enrich); khôi phục 3 row seed bị lần chạy đầu deactivate + xóa logo (verify 22 active) |
 | 2026-07-10 | #11 — Trang chi tiết nối Supabase v1.8.0 | `fetchSchoolBySlug` + `mergeSchoolPreferDb` (lib/schools-server.ts, service role, fallback mock); page async + ISR 300s; QuickFactsCard sidebar (#5+#7), CostBreakdownSection, AdmissionRequirementsSection, ContentSectionBlock (html sanitize qua lib/sanitize.ts / list / table); verify e2e: DB row 200, mock merge giữ nội dung giàu, 404 đúng |
 | 2026-07-10 | #10 — Scrape-test + Migration #7 v1.8.0 | Kiểm chứng khả thi cào think.edu.vn (robots.txt OK, HTML tĩnh, selector thật: .detail-school-info/.page-content-area/#toc_container); Migration #7 (quick_facts/cost_breakdown/admission_requirements JSONB + source_url/scraped_at — CHƯA apply); +5 types v1.8.0 + 5 Zod schemas; scripts/scrape-test (scrape/parsers/report, robots-aware, delay 3s, offline re-parse); coverage report 3 trường (0 lỗi Zod); generate-urls.ts v2 nguồn danh-sach-truong theo level (38 trường + levels, hết rác); crawler.ts nhận levels từ urls.json |
 | 2026-07-10 | #9 — School Detail Page v1.7.0 | Trang `/truong/[slug]` Server Component; Hero gradient + logo + badges; 2-column grid (description, highlights, programs, requirements + sticky sidebar tuition/scholarship CTA); 3 trường mock (Ball State, UMass Boston, Green River College); generateMetadata SEO |

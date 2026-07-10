@@ -38,3 +38,6 @@ next-env.d.ts
 
 # supabase cli
 supabase/.temp/
+
+# Crawl artifacts
+scripts/batch-output/
