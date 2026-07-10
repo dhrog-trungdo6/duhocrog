@@ -12,8 +12,8 @@ import {
   formatUsd,
   provinceLabelByCode,
   searchSchools,
-  useSchools,
 } from "@/lib/schools";
+import { useSchools } from "@/hooks/useSchools";
 import SchoolFilter from "@/components/schools/SchoolFilter";
 
 /** Options cho SchoolFilter — hằng module, derive từ data tĩnh nên không cần useMemo */
@@ -130,7 +130,16 @@ function TimTruongContent() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-bold leading-snug text-slate-800">
-                          {school.name}
+                          {school.slug ? (
+                            <Link
+                              href={`/truong/${school.slug}`}
+                              className="transition-colors hover:text-primary"
+                            >
+                              {school.name}
+                            </Link>
+                          ) : (
+                            school.name
+                          )}
                         </h3>
                         <p className="mt-1 text-xs text-slate-500">
                           {provinceLabel}, {countryLabel} ·{" "}

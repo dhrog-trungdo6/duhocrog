@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
 import type { FilterState, School } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
-import { schools as mockSchools } from "@/data/schools";
 
 /** "$28,000" — học phí luôn lưu number USD/năm (Data Contract). */
 export function formatUsd(value: number): string {
@@ -37,24 +35,5 @@ export function searchSchools(schools: School[], filters: FilterState): School[]
     );
 }
 
-/** Danh sách trường: ưu tiên bảng `schools` Supabase (CMS quản lý) → fallback mock khi DB trống/lỗi. */
-export function useSchools(): School[] {
-  const [schools, setSchools] = useState<School[]>(mockSchools);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const response = await fetch("/api/schools", { signal: controller.signal });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { schools: School[] };
-        if (payload.schools.length > 0) setSchools(payload.schools);
-      } catch {
-        // giữ mock — không crash khi lỗi mạng
-      }
-    })();
-    return () => controller.abort();
-  }, []);
-
-  return schools;
-}
+// Hook fetch danh sách trường: src/hooks/useSchools.ts ("use client" —
+// tách riêng để file này import được từ Server Component).

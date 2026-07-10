@@ -1,4 +1,4 @@
-e/**
+/**
  * 🕷️ ROG Education — School Crawler (think.edu.vn)
  * =================================================
  * Dùng: pnpm tsx scripts/crawler.ts
@@ -68,6 +68,8 @@ interface SchoolInsertRow {
 interface CrawlResult {
   url: string;
   success: boolean;
+  /** Data đã qua Zod — chỉ những row này mới được POST lên Supabase */
+  zodValid?: boolean;
   data?: SchoolInsertRow;
   error?: string;
 }
@@ -237,41 +239,24 @@ function extractRichContent($: cheerio.CheerioAPI): SchoolSection[] {
 
   // Chiến lược 2: Parse từng section dựa trên heading
   // (Đơn giản hóa — user cần tùy chỉnh theo cấu trúc thực tế)
-  let currentHeading = "";
-  let currentContent = "";
+  const HEADING_TAGS = ["h2", "h3", "h4"];
 
   possibleHeadings.each((_, headingEl) => {
     const headingText = cleanText($(headingEl).text());
     if (!headingText) return;
 
-    // Lưu section trước đó (nếu có)
-    if (currentHeading && currentContent) {
-      sections.push({
-        type: "html",
-        title: currentHeading,
-        content: currentContent,
-      });
-    }
-
-    currentHeading = headingText;
-
-    // Lấy nội dung giữa heading này và heading tiếp theo
-    // Đơn giản: lấy các sibling cho đến khi gặp heading tiếp theo
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let sibling: any = headingEl;
+    // Duyệt các sibling ELEMENT giữa heading này và heading tiếp theo.
+    // Lưu ý: node của cheerio (domhandler) không có nextElementSibling —
+    // dùng nextSibling và bỏ qua text/comment node.
     const parts: string[] = [];
-    // eslint-disable-next-line no-cond-assign
-    while ((sibling = sibling.nextElementSibling) && sibling.tagName !== "h2" && sibling.tagName !== "h3" && sibling.tagName !== "h4") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let sibling: any = nextElement(headingEl);
+    while (sibling && !HEADING_TAGS.includes((sibling.tagName ?? "").toLowerCase())) {
       const tagName = (sibling.tagName ?? "").toLowerCase();
       if (tagName === "table") {
-        // Parse table
-        const tableSection = parseTable($, sibling, currentHeading);
-        if (tableSection) {
-          sections.push(tableSection);
-          currentContent = ""; // Đã xử lý table, reset content
-        }
+        const tableSection = parseTable($, sibling, headingText);
+        if (tableSection) sections.push(tableSection);
       } else if (tagName === "ul" || tagName === "ol") {
-        // Parse list
         const items: string[] = [];
         $(sibling)
           .find("li")
@@ -279,24 +264,28 @@ function extractRichContent($: cheerio.CheerioAPI): SchoolSection[] {
             const text = cleanText($(li).text());
             if (text) items.push(text);
           });
-        if (items.length > 0) {
-          sections.push({ type: "list", title: currentHeading, items });
-          currentContent = ""; // Đã xử lý list
-        }
+        if (items.length > 0) sections.push({ type: "list", title: headingText, items });
       } else {
-        parts.push($.html(sibling) || $(sibling).text() || "");
+        parts.push($.html(sibling) || "");
       }
-      sibling = sibling.nextElementSibling;
+      sibling = nextElement(sibling);
     }
-    currentContent = parts.join("\n");
+
+    const htmlContent = parts.join("\n").trim();
+    if (htmlContent) {
+      sections.push({ type: "html", title: headingText, content: htmlContent });
+    }
   });
 
-  // Lưu section cuối cùng
-  if (currentHeading && currentContent) {
-    sections.push({ type: "html", title: currentHeading, content: currentContent });
-  }
-
   return sections;
+}
+
+/** Sibling element kế tiếp (bỏ qua text/comment node) — thay cho nextElementSibling. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function nextElement(node: any): any {
+  let sib = node?.nextSibling ?? null;
+  while (sib && sib.type !== "tag") sib = sib.nextSibling;
+  return sib;
 }
 
 /**
@@ -395,15 +384,14 @@ async function crawlOne(url: string, index: number, total: number): Promise<Craw
       content_sections: contentSections,
     };
 
-    // Validate bằng Zod
+    // Validate bằng Zod — data lỗi vẫn ghi ra file để review, nhưng KHÔNG POST lên Supabase
     const parsed = schoolInputSchema.safeParse(data);
     if (!parsed.success) {
       console.warn(`  ⚠️  Zod validation failed for ${name}:`, parsed.error.flatten().fieldErrors);
-      // Vẫn lưu data thô để user review
     }
 
     console.log(`  ✅ ${name} | ${contentSections.length} sections extracted`);
-    return { url, success: true, data };
+    return { url, success: true, zodValid: parsed.success, data };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(`  ❌ Failed: ${message}`);
@@ -461,10 +449,12 @@ async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (supabaseUrl && serviceKey && success.length > 0) {
-    console.log("\n📤 POSTing to Supabase...");
+  // Chỉ POST các row đã qua Zod — row lỗi nằm lại trong file JSON để user sửa tay
+  const validRows = success.filter((r) => r.zodValid);
+  if (supabaseUrl && serviceKey && validRows.length > 0) {
+    console.log(`\n📤 POSTing to Supabase (${validRows.length}/${success.length} row hợp lệ)...`);
     let inserted = 0;
-    for (const item of success) {
+    for (const item of validRows) {
       try {
         const res = await axios.post(
           `${supabaseUrl}/rest/v1/schools`,
@@ -484,7 +474,7 @@ async function main() {
       }
       await sleep();
     }
-    console.log(`   Inserted: ${inserted}/${success.length} vào Supabase`);
+    console.log(`   Inserted: ${inserted}/${validRows.length} vào Supabase`);
   }
 }
 

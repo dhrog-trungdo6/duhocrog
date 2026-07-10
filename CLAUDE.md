@@ -90,6 +90,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 3 | `20260709000003` | `lead_activities` (lead_id FK, staff_name, action_type, content, created_at) — nhật ký chăm sóc | ✅ Applied |
 | 4 | `20260710000004` | `schools.*` — thêm 9 cột: `slug` (unique partial index), `description`, `website_url`, `image_url`, `video_url`, `gallery_urls[]`, `highlights[]`, `programs[]`, `requirements[]` | ✅ Applied |
 | 5 | `20260710000005` | `schools.*` — thêm 6 cột: `founded_year`, `school_type`, `total_students`, `intakes[]`, `map_embed_url`, `content_sections` (JSONB discriminated union: html/list/table) + GIN index | ✅ Applied |
+| 6 | `20260710000006` | Backfill data: gán `slug` cho 22 trường seed trước khi có logic slug (idempotent, chỉ update row null) | ⚠️ **CHƯA chạy** |
 
 ### Chi tiết từng bảng:
 
@@ -106,7 +107,9 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 **schools** — dữ liệu trường:
 - RLS: public read `is_active = true`
 - Index: composite `(country, province, level, tuition_usd)` cho filter
-- Schema hiện tại (có slug từ code nhưng chưa có migration #4): FE mock 22 trường; seed API tạo slug từ name
+- Dữ liệu: ✅ 22 trường đã seed cloud, nhưng seed TRƯỚC khi có slug → cần chạy backfill
+  `20260710000006_backfill_school_slugs.sql` trên Dashboard (gán slug từ tên, idempotent)
+- FE vẫn fallback mock 22 trường (có slug sẵn) khi API lỗi
 
 **lead_activities** — nhật ký CRM:
 - FK: `lead_id → leads(id) ON DELETE CASCADE`
@@ -130,7 +133,9 @@ Mã quốc gia    → Country['code'] lowercase
 v1.0.0: LeadFormData, School, EventItem, StudyLevel, Country, Province...
 v1.4.0: ServiceMenuItem, VisaType, VisaProcessStep, DocumentRequirement, PricingItem, FAQItem
 v1.5.0: FilterOption, ProvinceFilterOption, FilterState, SchoolFilterProps
-v1.6.0: StudyDestination, StudyAbroadMegaMenuProps, Article extended (imageUrl?, isHot?)
+v1.6.0: StudyDestination, StudyAbroadMegaMenuProps, Article (+isHot?; ảnh dùng thumbnailUrl — imageUrl đã gỡ vì trùng)
+v1.7.0: SchoolProgram, SchoolSection (HtmlSection|ListSection|TableSection discriminated union),
+        School/SchoolRow mở rộng (slug, description, media, quick facts, content_sections)
 ```
 
 ---
@@ -253,6 +258,9 @@ Resend  : ❌ chưa dùng
 - [x] **Migration #4 (`school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
 - [x] **Migration #5 (`rich_school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
 - [x] Trang `/truong/[slug]` — ✅ ĐÃ XÂY (Server Component, 3 trường mock). Sẵn sàng nối Supabase
+- [ ] **Backfill slug** — 22 row cloud có `slug=null` (seed trước khi có slug): chạy
+  `supabase/migrations/20260710000006_backfill_school_slugs.sql` trên Dashboard → SQL Editor
+- [ ] Crawler `scripts/crawler.ts` — CSS selectors đang là GIẢ ĐỊNH, cần inspect DOM think.edu.vn rồi chỉnh
 - [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
 - [ ] `src/config/site.ts` placeholder toàn bộ
 - [ ] Ảnh thật thay placeholder
@@ -260,9 +268,10 @@ Resend  : ❌ chưa dùng
 
 ### Next Steps (ưu tiên)
 
-1. ~~**Apply migration #4**~~ ✅ ĐÃ XONG
-2. ~~**Xây trang `/truong/[slug]`**~~ ✅ ĐÃ XONG — nối Supabase sau khi seed DB
-3. **Nhập dữ liệu thật** (seed schools hoặc crawler) + điền thông tin thương hiệu
+1. **Chạy backfill slug** (`20260710000006`) trên Supabase Dashboard — 22 row đang slug=null
+2. **Nối trang `/truong/[slug]` vào Supabase** — fetch theo slug (getSupabaseAdmin, RLS đã bao phủ),
+   render content_sections (html/list/table); fallback mock 3 trường hiện tại
+3. **Chỉnh CSS selectors crawler** theo DOM thật rồi crawl dữ liệu + điền thông tin thương hiệu
 
 ### Change Log
 

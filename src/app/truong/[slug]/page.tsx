@@ -16,6 +16,7 @@ import type { School } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
 import { schools as allSchools } from "@/data/schools";
+import { formatUsd } from "@/lib/schools";
 
 /** ── Mock school details (mở rộng từ schools.ts) ─────────────── */
 const schoolDetails: Record<string, School> = {
@@ -115,11 +116,6 @@ export async function generateMetadata({
     title: `${school.name} — Du học ROG`,
     description: school.description ?? `Thông tin chi tiết về ${school.name} — học phí, học bổng, điều kiện đầu vào từ ROG Education.`,
   };
-}
-
-/** Format tiền USD */
-function formatUsd(value: number): string {
-  return `$${value.toLocaleString("en-US")}`;
 }
 
 /** ── Sub-components nội bộ (giữ trong cùng file) ────────────── */

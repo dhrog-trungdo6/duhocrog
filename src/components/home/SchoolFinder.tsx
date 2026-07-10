@@ -10,8 +10,8 @@ import {
   formatUsd,
   provinceLabelByCode,
   searchSchools,
-  useSchools,
 } from "@/lib/schools";
+import { useSchools } from "@/hooks/useSchools";
 import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
 
