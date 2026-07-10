@@ -99,9 +99,9 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 5 | `20260710000005` | `schools.*` — thêm 6 cột: `founded_year`, `school_type`, `total_students`, `intakes[]`, `map_embed_url`, `content_sections` (JSONB discriminated union: html/list/table) + GIN index | ✅ Applied |
 | 6 | `20260710000006` | Backfill data: gán `slug` cho 22 trường seed trước khi có logic slug (idempotent, chỉ update row null) | ✅ Đã chạy (verify 0 row slug null) |
 | 7 | `20260711000007` | `schools.*` — thêm 5 cột: `quick_facts`, `cost_breakdown`, `admission_requirements` (JSONB, Zod là nguồn chân lý) + `source_url`, `scraped_at` (audit crawler) | ✅ Applied (kiểm chứng scrape-test: `scripts/scrape-test/output/report.md`) |
-| 8 | `20260711000008` | Thay partial index `idx_schools_slug` bằng unique constraint `schools_slug_key` — mở khóa PostgREST `on_conflict=slug` (partial index làm mọi upsert REST trả 400) | ❌ CHƯA apply — chạy tay Dashboard khi tiện (crawl đã chạy OK bằng GET→PATCH/POST, không gấp) |
-| 9 | `20260711000009` | `schools.official_rss_url` (text) + `auto_sync_enabled` (boolean default false) — cấu hình automation rule 10 (n8n theo dõi RSS) | ❌ CHƯA apply — Tab Automation trong SchoolFormModal chỉ gửi 2 cột này khi user điền/row đã có cột (null-safe trước khi apply) |
-| 10 | `20260711000010` | `schools.show_cta` (boolean default true) + `related_slugs` (text[] default '{}') — khối CTA + Bài viết liên quan trang chi tiết | ❌ CHƯA apply — Tab "Liên kết & CTA" null-safe như #9 |
+| 8 | `20260711000008` | Thay partial index `idx_schools_slug` bằng unique constraint `schools_slug_key` — mở khóa PostgREST `on_conflict=slug` (partial index làm mọi upsert REST trả 400) | ✅ Applied (2026-07-11, verify: POST on_conflict=slug trả 200) |
+| 9 | `20260711000009` | `schools.official_rss_url` (text) + `auto_sync_enabled` (boolean default false) — cấu hình automation rule 10 (n8n theo dõi RSS) | ✅ Applied (2026-07-11, verify cột trả giá trị) |
+| 10 | `20260711000010` | `schools.show_cta` (boolean default true) + `related_slugs` (text[] default '{}') — khối CTA + Bài viết liên quan trang chi tiết | ✅ Applied (2026-07-11, verify cột trả giá trị) |
 
 ### Chi tiết từng bảng:
 
@@ -282,8 +282,8 @@ Resend  : ❌ chưa dùng
   scrape-test, upsert 2 bước GET→PATCH/POST): 35 trường mới `is_active=false` chờ duyệt,
   3 trường trùng seed (ball-state, manchester, winchester) được enrich dữ liệu giàu
   (đã khôi phục `is_active=true` + logo sau sự cố lần chạy đầu đè cột)
-- [ ] **Migration #8 (`slug_unique_constraint`) — CHƯA apply**: chạy tay Dashboard (fix gốc lỗi 400
-  của `on_conflict=slug`; không gấp vì batch-crawl không còn dùng on_conflict)
+- [x] **Migration #8, #9, #10 — ✅ ĐÃ APPLY** (2026-07-11, user chạy Dashboard; verify:
+  on_conflict=slug 200, cột automation + show_cta/related_slugs trả giá trị)
 - [ ] **Duyệt 35 trường mới crawl** trong Admin SchoolsTab (`is_active=false`) → kiểm tra rồi bật active
 - [ ] `scripts/crawler.ts` cũ — selectors GIẢ ĐỊNH, đã bị `batch-crawl.ts` thay thế trên thực tế
 - [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
@@ -294,7 +294,8 @@ Resend  : ❌ chưa dùng
 ### Next Steps (ưu tiên)
 
 1. **Duyệt 35 trường mới crawl** trong Admin (`is_active=false`) — kiểm tra dữ liệu rồi bật active
-2. **Apply migration #8** (`slug_unique_constraint`) trên Supabase Dashboard → SQL Editor
+2. **Fix coverage parser crawler**: 35/38 trường crawl có `content_sections` rỗng (chỉ 3 trường
+   seed có sections) — tinh chỉnh selector `scripts/scrape-test/parsers.ts` rồi crawl lại
 3. **Xóa lead test** trên Supabase Dashboard (`delete from leads where full_name = 'TEST Claude production - xoá sau'`)
 4. **Điền thông tin thương hiệu** `src/config/site.ts` + ảnh thật thay placeholder
 
