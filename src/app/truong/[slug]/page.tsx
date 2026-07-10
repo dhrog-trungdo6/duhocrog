@@ -223,6 +223,7 @@ function MapSection({ src, schoolName }: { src: string; schoolName: string }) {
         title={`Bản đồ ${schoolName}`}
         loading="lazy"
         allowFullScreen
+        sandbox="allow-scripts allow-same-origin allow-popups"
         referrerPolicy="no-referrer-when-downgrade"
         className="h-[350px] w-full rounded-xl border border-gray-200 bg-white"
       />
