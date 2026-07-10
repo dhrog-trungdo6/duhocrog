@@ -2,3 +2,6 @@
 urls.json
 schools_data_scraped.json
 schools_failed.json
+
+# Scrape-test output (raw HTML + parsed JSON + report)
+scrape-test/output/

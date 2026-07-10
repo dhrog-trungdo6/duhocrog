@@ -91,6 +91,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 4 | `20260710000004` | `schools.*` — thêm 9 cột: `slug` (unique partial index), `description`, `website_url`, `image_url`, `video_url`, `gallery_urls[]`, `highlights[]`, `programs[]`, `requirements[]` | ✅ Applied |
 | 5 | `20260710000005` | `schools.*` — thêm 6 cột: `founded_year`, `school_type`, `total_students`, `intakes[]`, `map_embed_url`, `content_sections` (JSONB discriminated union: html/list/table) + GIN index | ✅ Applied |
 | 6 | `20260710000006` | Backfill data: gán `slug` cho 22 trường seed trước khi có logic slug (idempotent, chỉ update row null) | ⚠️ **CHƯA chạy** |
+| 7 | `20260711000007` | `schools.*` — thêm 5 cột: `quick_facts`, `cost_breakdown`, `admission_requirements` (JSONB, Zod là nguồn chân lý) + `source_url`, `scraped_at` (audit crawler) | ⚠️ **CHƯA apply** — đã kiểm chứng bằng scrape-test 3 trường thật, xem `scripts/scrape-test/output/report.md` |
 
 ### Chi tiết từng bảng:
 
@@ -136,6 +137,8 @@ v1.5.0: FilterOption, ProvinceFilterOption, FilterState, SchoolFilterProps
 v1.6.0: StudyDestination, StudyAbroadMegaMenuProps, Article (+isHot?; ảnh dùng thumbnailUrl — imageUrl đã gỡ vì trùng)
 v1.7.0: SchoolProgram, SchoolSection (HtmlSection|ListSection|TableSection discriminated union),
         School/SchoolRow mở rộng (slug, description, media, quick facts, content_sections)
+v1.8.0: SchoolQuickFacts, CostRow, SchoolCostBreakdown, AdmissionRow, SchoolAdmissionRequirements
+        (JSONB migration #7 — kiểm chứng bằng scrape-test think.edu.vn)
 ```
 
 ---
@@ -260,7 +263,11 @@ Resend  : ❌ chưa dùng
 - [x] Trang `/truong/[slug]` — ✅ ĐÃ XÂY (Server Component, 3 trường mock). Sẵn sàng nối Supabase
 - [ ] **Backfill slug** — 22 row cloud có `slug=null` (seed trước khi có slug): chạy
   `supabase/migrations/20260710000006_backfill_school_slugs.sql` trên Dashboard → SQL Editor
-- [ ] Crawler `scripts/crawler.ts` — CSS selectors đang là GIẢ ĐỊNH, cần inspect DOM think.edu.vn rồi chỉnh
+- [ ] **Migration #7 (`school_rich_content`) — ⚠️ CHƯA apply**: đã kiểm chứng schema bằng scrape-test
+  3 trường thật (report: `scripts/scrape-test/output/report.md`) — apply Dashboard khi chốt
+- [ ] Crawler `scripts/crawler.ts` — CSS selectors đang là GIẢ ĐỊNH; selector THẬT đã có trong
+  `scripts/scrape-test/parsers.ts` (.detail-school-info, .page-content-area, #toc_container) — hợp nhất khi crawl thật
+- [ ] Crawl thật cần upsert `on_conflict=slug` — nhiều trường think.edu.vn trùng 22 row seed (ball-state, manchester, winchester)
 - [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
 - [ ] `src/config/site.ts` placeholder toàn bộ
 - [ ] Ảnh thật thay placeholder
@@ -277,6 +284,7 @@ Resend  : ❌ chưa dùng
 
 | Ngày | Phiên | Thay đổi |
 |------|-------|---------|
+| 2026-07-10 | #10 — Scrape-test + Migration #7 v1.8.0 | Kiểm chứng khả thi cào think.edu.vn (robots.txt OK, HTML tĩnh, selector thật: .detail-school-info/.page-content-area/#toc_container); Migration #7 (quick_facts/cost_breakdown/admission_requirements JSONB + source_url/scraped_at — CHƯA apply); +5 types v1.8.0 + 5 Zod schemas; scripts/scrape-test (scrape/parsers/report, robots-aware, delay 3s, offline re-parse); coverage report 3 trường (0 lỗi Zod); generate-urls.ts v2 nguồn danh-sach-truong theo level (38 trường + levels, hết rác); crawler.ts nhận levels từ urls.json |
 | 2026-07-10 | #9 — School Detail Page v1.7.0 | Trang `/truong/[slug]` Server Component; Hero gradient + logo + badges; 2-column grid (description, highlights, programs, requirements + sticky sidebar tuition/scholarship CTA); 3 trường mock (Ball State, UMass Boston, Green River College); generateMetadata SEO |
 | 2026-07-10 | #8 — Mega Menu DU HỌC v1.6.0 | StudyAbroadMegaMenu (desktop full-width, nav-bg: bg-navy, sidebar 6 nước + featured/related articles grid); Fix positioning: move Mega Menu outside `<li>` vào header-level wrapper; StudyDestination, StudyAbroadMegaMenuProps types; megaMenu mock data (6 nước, 24 bài viết); Article extended (imageUrl?, isHot?) |
 | 2026-07-09 | #7 — SchoolFilter + DU HỌC dropdown v1.5.0 | SchoolFilter component (props-driven, Radix Slider); Trang `/tim-truong` + `?country=`; Dropdown "DU HỌC" 12 nước; StudyDestinations links; "Tiếng Anh" → "Tìm Trường"; +4 types |

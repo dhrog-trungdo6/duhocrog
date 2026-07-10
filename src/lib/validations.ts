@@ -118,6 +118,12 @@ export const schoolInputSchema = z.object({
   intakes: z.array(z.string().trim().min(1).max(50)).max(12).optional().default([]),
   map_embed_url: z.string().trim().max(1000).optional().default(""),
   content_sections: z.array(z.lazy(() => schoolSectionSchema)).max(30).optional().default([]),
+  // ── Migration #7 — Rich content JSONB (scrape-test) ──
+  quick_facts: z.lazy(() => schoolQuickFactsSchema).nullable().optional(),
+  cost_breakdown: z.lazy(() => schoolCostBreakdownSchema).nullable().optional(),
+  admission_requirements: z.lazy(() => schoolAdmissionRequirementsSchema).nullable().optional(),
+  source_url: z.string().trim().max(1000).optional(),
+  scraped_at: z.string().datetime({ offset: true }).optional(),
 });
 
 // ── Rich School Sections (Migration #5 — Zod Discriminated Union) ─
@@ -131,7 +137,8 @@ export const htmlSectionSchema = z.object({
 export const listSectionSchema = z.object({
   type: z.literal("list"),
   title: z.string().trim().min(1, "Tiêu đề section không được trống").max(200),
-  items: z.array(z.string().trim().min(1).max(300)).max(50),
+  // Max 500: bullet thực tế trên think.edu.vn dài hơn 300 ký tự (scrape-test 2026-07-10)
+  items: z.array(z.string().trim().min(1).max(500)).max(50),
 });
 
 /** Bảng động: headers = tên cột, rows = mảng record {key: value} */
@@ -153,3 +160,48 @@ export const schoolSectionSchema = z.discriminatedUnion("type", [
   listSectionSchema,
   tableSectionSchema,
 ]);
+
+// ── Rich content JSONB (Migration #7 — schema scrape-test) ─────────
+// Nguyên tắc: KHOAN DUNG khi parse (field không chắc → optional/nullable),
+// NGHIÊM khi ghi (đã có thì phải đúng kiểu). Zod là nguồn chân lý cho shape JSONB.
+
+/** Quick facts sidebar — cột schools.quick_facts */
+export const schoolQuickFactsSchema = z.object({
+  foundedYear: z.number().int().min(1000).max(2100).optional(),
+  schoolType: z.string().trim().min(1).max(100).optional(),
+  intakes: z.array(z.string().trim().min(1).max(50)).max(12).optional(),
+  studentCount: z.string().trim().min(1).max(50).optional(), // giữ string: '25,000+'
+  campusCity: z.string().trim().min(1).max(200).optional(),
+  websiteUrl: z.string().trim().max(500).optional(),
+});
+
+/** 1 hàng bảng chi phí — amountMax = amountMin khi giá trị đơn */
+export const costRowSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  amountMin: z.number().min(0).nullable(),
+  amountMax: z.number().min(0).nullable(),
+  unit: z.string().trim().max(50), // 'CAD/năm'
+  note: z.string().trim().max(500).optional(),
+});
+
+/** Bảng chi phí — cột schools.cost_breakdown */
+export const schoolCostBreakdownSchema = z.object({
+  currency: z.string().trim().min(1).max(10), // 'CAD' | 'USD' | ...
+  rows: z.array(costRowSchema).max(50),
+  totalEstimate: costRowSchema.optional(),
+});
+
+/** 1 hàng bảng điều kiện nhập học — string tự do ('6.5+', 'Không bắt buộc').
+ *  Max 300: cell thực tế trên think.edu.vn có mô tả dài (scrape-test 2026-07-10). */
+export const admissionRowSchema = z.object({
+  level: z.string().trim().min(1).max(100),
+  gpa: z.string().trim().max(300).optional(),
+  ielts: z.string().trim().max(300).optional(),
+  other: z.string().trim().max(500).optional(),
+});
+
+/** Bảng điều kiện nhập học — cột schools.admission_requirements */
+export const schoolAdmissionRequirementsSchema = z.object({
+  rows: z.array(admissionRowSchema).max(30),
+  notes: z.string().trim().max(1000).optional(),
+});

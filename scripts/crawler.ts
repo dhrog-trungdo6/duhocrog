@@ -326,7 +326,12 @@ function parseTable(
 
 // ─── MAIN CRAWLER ────────────────────────────────────────
 
-async function crawlOne(url: string, index: number, total: number): Promise<CrawlResult> {
+async function crawlOne(
+  url: string,
+  index: number,
+  total: number,
+  levelHint?: string,
+): Promise<CrawlResult> {
   console.log(`[${index + 1}/${total}] 🌐 Crawling: ${url}`);
 
   try {
@@ -344,7 +349,8 @@ async function crawlOne(url: string, index: number, total: number): Promise<Craw
     const coverUrl = $(SELECTORS.coverUrl).first().attr("src") ?? "";
     const country = detectCountry($);
     const province = ""; // Hard to auto-detect — user can add regex
-    const level = "dai-hoc"; // Default; user can enhance detection
+    // Level từ urls.json (generate-urls.ts đọc từ danh mục theo bậc học), fallback dai-hoc
+    const level = levelHint ?? "dai-hoc";
 
     // ── Quick Facts ──────────────────────────────────────
     const quickFacts = extractQuickFacts($);
@@ -410,22 +416,26 @@ async function main() {
   }
 
   const raw = fs.readFileSync(INPUT_FILE, "utf-8");
-  let urls: string[];
+  // Hỗ trợ 2 format: string[] (cũ) hoặc [{url, levels: string[]}] (generate-urls.ts mới)
+  let entries: Array<{ url: string; level?: string }>;
   try {
-    urls = JSON.parse(raw) as string[];
+    const parsed = JSON.parse(raw) as Array<string | { url: string; levels?: string[] }>;
+    entries = parsed.map((item) =>
+      typeof item === "string" ? { url: item } : { url: item.url, level: item.levels?.[0] },
+    );
   } catch {
     console.error("❌ urls.json không phải JSON hợp lệ!");
     process.exit(1);
   }
 
-  console.log(`📋 Loaded ${urls.length} URLs\n`);
+  console.log(`📋 Loaded ${entries.length} URLs\n`);
 
   // ── Crawl ──────────────────────────────────────────────
   const results: CrawlResult[] = [];
-  const total = urls.length;
+  const total = entries.length;
 
   for (let i = 0; i < total; i++) {
-    const result = await crawlOne(urls[i], i, total);
+    const result = await crawlOne(entries[i].url, i, total, entries[i].level);
     results.push(result);
     if (i < total - 1) await sleep();
   }

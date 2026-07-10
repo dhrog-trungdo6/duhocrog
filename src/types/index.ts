@@ -107,6 +107,54 @@ export interface School {
   intakes?: string[];
   mapEmbedUrl?: string;
   contentSections?: SchoolSection[];
+  // ── Migration #7 — Rich content JSONB (scrape-test) ──
+  quickFacts?: SchoolQuickFacts;
+  costBreakdown?: SchoolCostBreakdown;
+  admissionRequirements?: SchoolAdmissionRequirements;
+  sourceUrl?: string;
+  scrapedAt?: string; // ISO 8601
+}
+
+// ── Rich content JSONB (Migration #7 — schema scrape-test) ──────────
+
+/** Quick facts sidebar — cột schools.quick_facts (JSONB). Khoan dung: field nào không cào được thì bỏ trống. */
+export interface SchoolQuickFacts {
+  foundedYear?: number;
+  schoolType?: string; // 'Công lập' | 'Tư thục' | 'Nội trú'... — string tự do
+  intakes?: string[]; // ['Tháng 1', 'Tháng 5', 'Tháng 9']
+  studentCount?: string; // giữ string: '25,000+' — không ép về number
+  campusCity?: string;
+  websiteUrl?: string;
+}
+
+/** 1 hàng bảng chi phí — amountMax = amountMin khi giá trị đơn. */
+export interface CostRow {
+  label: string; // 'Học phí trung học'
+  amountMin: number | null;
+  amountMax: number | null;
+  unit: string; // 'CAD/năm'
+  note?: string;
+}
+
+/** Bảng chi phí — cột schools.cost_breakdown (JSONB). Đơn vị tiền thay đổi theo quốc gia. */
+export interface SchoolCostBreakdown {
+  currency: string; // 'CAD' | 'USD' | ...
+  rows: CostRow[];
+  totalEstimate?: CostRow;
+}
+
+/** 1 hàng bảng điều kiện nhập học — giữ string vì format tự do ('6.5+', 'Không bắt buộc'). */
+export interface AdmissionRow {
+  level: string; // 'Trung học' | 'Đại học'...
+  gpa?: string;
+  ielts?: string;
+  other?: string;
+}
+
+/** Bảng điều kiện nhập học — cột schools.admission_requirements (JSONB). */
+export interface SchoolAdmissionRequirements {
+  rows: AdmissionRow[];
+  notes?: string;
 }
 
 // ── Rich School Sections (Migration #5 — Discriminated Union) ─
@@ -307,4 +355,17 @@ export interface SchoolRow {
   highlights: string[] | null; // jsonb
   programs: SchoolProgram[] | null; // jsonb
   requirements: DocumentRequirement[] | null; // jsonb
+  // ── Migration #5 — Quick Facts + Rich Content Sections ──
+  founded_year: number | null;
+  school_type: string | null;
+  total_students: number | null;
+  intakes: string[] | null;
+  map_embed_url: string | null;
+  content_sections: SchoolSection[] | null; // jsonb
+  // ── Migration #7 — Rich content JSONB (null khi cloud chưa apply) ──
+  quick_facts: SchoolQuickFacts | null; // jsonb
+  cost_breakdown: SchoolCostBreakdown | null; // jsonb
+  admission_requirements: SchoolAdmissionRequirements | null; // jsonb
+  source_url: string | null;
+  scraped_at: string | null;
 }
