@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { GraduationCap, Percent, Search, SearchX } from "lucide-react";
 import type { School, StudyLevel } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
@@ -188,7 +189,19 @@ export function SchoolFinder() {
                         className="rounded-lg bg-white p-5 text-slate-800 shadow-md"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-bold leading-snug">{school.name}</h3>
+                          <h3 className="font-bold leading-snug">
+                            {school.slug ? (
+                              <Link
+                                href={`/truong/${school.slug}`}
+                                prefetch={false}
+                                className="transition-colors hover:text-primary"
+                              >
+                                {school.name}
+                              </Link>
+                            ) : (
+                              school.name
+                            )}
+                          </h3>
                           <GraduationCap className="h-5 w-5 shrink-0 text-primary" aria-hidden />
                         </div>
                         <p className="mt-1 text-xs text-slate-500">

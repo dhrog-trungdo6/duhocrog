@@ -133,6 +133,7 @@ function TimTruongContent() {
                           {school.slug ? (
                             <Link
                               href={`/truong/${school.slug}`}
+                              prefetch={false}
                               className="transition-colors hover:text-primary"
                             >
                               {school.name}
