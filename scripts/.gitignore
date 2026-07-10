@@ -1,0 +1,4 @@
+# Crawler output files (chứa data crawl được)
+urls.json
+schools_data_scraped.json
+schools_failed.json
