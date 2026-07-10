@@ -37,6 +37,8 @@ export function rowToSchool(row: SchoolRow): School {
     admissionRequirements: row.admission_requirements ?? undefined,
     sourceUrl: row.source_url ?? undefined,
     scrapedAt: row.scraped_at ?? undefined,
+    showCta: row.show_cta ?? undefined,
+    relatedSlugs: row.related_slugs ?? undefined,
   };
 }
 
@@ -61,6 +63,31 @@ export async function fetchSchoolBySlug(slug: string): Promise<School | null> {
   } catch (error) {
     console.error("[schools-server] unexpected:", error);
     return null;
+  }
+}
+
+/** Fetch nhiều trường active theo mảng slug — giữ thứ tự admin nhập; lỗi → []. */
+export async function fetchSchoolsBySlugs(slugs: string[]): Promise<School[]> {
+  if (slugs.length === 0) return [];
+  try {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from("schools")
+      .select("*")
+      .in("slug", slugs)
+      .eq("is_active", true);
+
+    if (error || !data) {
+      if (error) console.error("[schools-server] fetchSchoolsBySlugs:", error);
+      return [];
+    }
+    const bySlug = new Map((data as SchoolRow[]).map((r) => [r.slug, rowToSchool(r)]));
+    return slugs.map((s) => bySlug.get(s)).filter((s): s is School => Boolean(s));
+  } catch (error) {
+    console.error("[schools-server] unexpected:", error);
+    return [];
   }
 }
 

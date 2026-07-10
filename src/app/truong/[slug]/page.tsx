@@ -23,7 +23,12 @@ import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
 import { schools as allSchools } from "@/data/schools";
 import { formatUsd } from "@/lib/schools";
-import { fetchSchoolBySlug, mergeSchoolPreferDb } from "@/lib/schools-server";
+import { WHY_CHOOSE_ROG } from "@/data/ctaBox";
+import {
+  fetchSchoolBySlug,
+  fetchSchoolsBySlugs,
+  mergeSchoolPreferDb,
+} from "@/lib/schools-server";
 import { sanitizeHtml } from "@/lib/sanitize";
 
 // ISR 5 phút — dữ liệu trường đổi qua admin/crawler, không cần realtime
@@ -227,6 +232,69 @@ function MapSection({ src, schoolName }: { src: string; schoolName: string }) {
         referrerPolicy="no-referrer-when-downgrade"
         className="h-[350px] w-full rounded-xl border border-gray-200 bg-white"
       />
+    </section>
+  );
+}
+
+/** Khối CTA cuối bài — tắt được qua Tab "Liên kết & CTA" (show_cta, migration #10). */
+function CtaBox() {
+  return (
+    <section className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-6 md:p-8">
+      <h2 className="mb-5 text-center text-lg font-bold text-slate-800">
+        Vì sao nên chọn Du học ROG?
+      </h2>
+      <ul className="space-y-2.5">
+        {WHY_CHOOSE_ROG.map((item) => (
+          <li key={item} className="flex items-start gap-3">
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <span className="text-sm text-slate-700">{item}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-6 text-center">
+        <a
+          href="#lead-form"
+          className="inline-flex items-center justify-center rounded-lg bg-primary px-8 py-3 text-sm font-bold uppercase text-white shadow-sm transition-colors hover:bg-primary-light"
+        >
+          Tôi muốn được tư vấn
+        </a>
+      </div>
+    </section>
+  );
+}
+
+/** Bài viết liên quan — trường active theo related_slugs (migration #10). */
+function RelatedSchoolsSection({ schools }: { schools: School[] }) {
+  return (
+    <section className="border-t-2 border-primary/20 pt-6">
+      <h2 className="mb-5 text-lg font-bold uppercase text-primary">Bài viết liên quan</h2>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {schools.map((s) => (
+          <Link
+            key={s.slug}
+            href={`/truong/${s.slug}`}
+            prefetch={false}
+            className="group rounded-lg border border-gray-200 bg-white p-4 text-center shadow-sm transition-shadow hover:shadow-md"
+          >
+            {s.logoUrl ? (
+              <Image
+                src={s.logoUrl}
+                alt={s.name}
+                width={120}
+                height={60}
+                className="mx-auto h-14 w-auto object-contain"
+              />
+            ) : (
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-light">
+                <GraduationCap className="h-7 w-7 text-white" aria-hidden />
+              </div>
+            )}
+            <p className="mt-3 text-sm font-semibold text-primary group-hover:text-primary-light">
+              {s.name}
+            </p>
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }
@@ -437,6 +505,8 @@ export default async function SchoolDetailPage({
   const school = await getSchoolBySlug(params.slug);
   if (!school) notFound();
 
+  const relatedSchools = await fetchSchoolsBySlugs(school.relatedSlugs ?? []);
+
   const countryName =
     destinations.find((c) => c.code === school.country)?.name.replace("Du học ", "") ??
     school.country;
@@ -596,8 +666,14 @@ export default async function SchoolDetailPage({
               <ContentSectionBlock key={idx} section={section} id={`noi-dung-${idx + 1}`} />
             ))}
 
-            {/* Vị trí trên bản đồ — map_embed_url (migration #5, sửa qua Tab Tổng quan) */}
+            {/* Vị trí trên bản đồ — map_embed_url (migration #5, sửa qua Tab Vị trí & Bản đồ) */}
             {mapSrc && <MapSection src={mapSrc} schoolName={school.name} />}
+
+            {/* Khối CTA — tắt qua Tab Liên kết & CTA (show_cta) */}
+            {school.showCta !== false && <CtaBox />}
+
+            {/* Bài viết liên quan — related_slugs */}
+            {relatedSchools.length > 0 && <RelatedSchoolsSection schools={relatedSchools} />}
           </div>
 
           {/* ── Cột phải: Sticky Sidebar ── */}

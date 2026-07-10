@@ -128,6 +128,19 @@ export const schoolInputSchema = z.object({
   // client gửi, tránh lỗi column-not-exist lúc cloud chưa apply migration ──
   official_rss_url: z.string().trim().max(500).optional(),
   auto_sync_enabled: z.boolean().optional(),
+  // ── Migration #10 — CTA + related (rule 12). KHÔNG default, lý do như trên ──
+  show_cta: z.boolean().optional(),
+  related_slugs: z
+    .array(
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .max(200)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug chỉ gồm a-z, 0-9 và dấu gạch ngang"),
+    )
+    .max(12)
+    .optional(),
 });
 
 /**
@@ -272,6 +285,8 @@ export const schoolEditFormSchema = schoolFormSchema.extend({
   content_sections: z.array(schoolSectionSchema).max(30),
   official_rss_url: z.string().trim().max(500).optional(),
   auto_sync_enabled: z.boolean(),
+  show_cta: z.boolean(),
+  related_slugs: schoolInputSchema.shape.related_slugs.unwrap(),
 });
 
 export type SchoolEditFormValues = z.infer<typeof schoolEditFormSchema>;

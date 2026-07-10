@@ -113,6 +113,9 @@ export interface School {
   admissionRequirements?: SchoolAdmissionRequirements;
   sourceUrl?: string;
   scrapedAt?: string; // ISO 8601
+  // ── Migration #10 — CTA + bài liên quan ──
+  showCta?: boolean; // undefined = hiện (mặc định)
+  relatedSlugs?: string[];
 }
 
 // ── Rich content JSONB (Migration #7 — schema scrape-test) ──────────
@@ -371,6 +374,9 @@ export interface SchoolRow {
   // ── Migration #9 — Automation config (undefined khi cloud chưa apply) ──
   official_rss_url?: string | null;
   auto_sync_enabled?: boolean | null;
+  // ── Migration #10 — CTA + related (undefined khi cloud chưa apply) ──
+  show_cta?: boolean | null;
+  related_slugs?: string[] | null;
 }
 
 // ── Admin Schools CRUD (v1.9.0) ────────────────────────────────────

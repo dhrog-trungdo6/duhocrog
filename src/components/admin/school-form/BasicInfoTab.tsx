@@ -1,23 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 import type { StudyLevel } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import type { SchoolEditFormValues } from "@/lib/validations";
 import { destinations, provinces } from "@/data/destinations";
+import { slugify } from "@/lib/slug";
 import { FieldErr, inputClasses, labelClasses } from "./ui";
 
 const LEVELS = Object.entries(STUDY_LEVEL_LABELS) as [StudyLevel, string][];
 
-/** Tab 1 — Tổng quan: tên, slug, quốc gia/tỉnh, bậc học, logo, trạng thái. */
-export function BasicInfoTab() {
+/** Tab 1 — Tổng quan: tên, slug (tự sinh khi tạo mới), quốc gia/tỉnh, bậc học, logo, website. */
+export function BasicInfoTab({ isNew }: { isNew: boolean }) {
   const {
     register,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useFormContext<SchoolEditFormValues>();
+
+  // Tạo mới: slug tự sinh theo tên cho tới khi admin tự gõ vào ô slug (dirty)
+  const name = watch("name");
+  useEffect(() => {
+    if (isNew && !dirtyFields.slug) {
+      setValue("slug", name ? slugify(name) : undefined, { shouldDirty: false });
+    }
+  }, [isNew, name, dirtyFields.slug, setValue]);
 
   const country = watch("country");
   const province = watch("province");
@@ -39,7 +48,10 @@ export function BasicInfoTab() {
 
       <div>
         <label htmlFor="sf-slug" className={labelClasses}>
-          Slug <span className="font-normal text-slate-400">(bỏ trống → tự sinh từ tên)</span>
+          Slug{" "}
+          <span className="font-normal text-slate-400">
+            {isNew ? "(tự sinh từ tên — gõ vào để tự đặt)" : "(bỏ trống → tự sinh từ tên)"}
+          </span>
         </label>
         <input
           id="sf-slug"
@@ -119,22 +131,6 @@ export function BasicInfoTab() {
           className={inputClasses}
         />
         <FieldErr message={errors.website_url?.message} />
-      </div>
-
-      <div>
-        <label htmlFor="sf-map" className={labelClasses}>
-          Vị trí — Google Maps embed URL{" "}
-          <span className="font-normal text-slate-400">
-            (Maps → Chia sẻ → Nhúng bản đồ → copy src của iframe)
-          </span>
-        </label>
-        <input
-          id="sf-map"
-          placeholder="https://www.google.com/maps/embed?pb=..."
-          {...register("map_embed_url")}
-          className={inputClasses}
-        />
-        <FieldErr message={errors.map_embed_url?.message} />
       </div>
 
       <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm font-semibold text-slate-700">

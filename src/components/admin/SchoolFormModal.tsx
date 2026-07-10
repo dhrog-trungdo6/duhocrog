@@ -10,12 +10,16 @@ import { Button } from "@/components/ui/Button";
 import { BasicInfoTab } from "./school-form/BasicInfoTab";
 import { QuickFactsCostTab } from "./school-form/QuickFactsCostTab";
 import { ContentBuilderTab } from "./school-form/ContentBuilderTab";
+import { LocationMapTab } from "./school-form/LocationMapTab";
+import { LinksCtaTab } from "./school-form/LinksCtaTab";
 import { AutomationTab } from "./school-form/AutomationTab";
 
 const TABS = [
   { key: "basic", label: "Tổng quan" },
+  { key: "location", label: "Vị trí & Bản đồ" },
   { key: "facts", label: "Quick Facts & Chi phí" },
   { key: "content", label: "Nội dung chi tiết" },
+  { key: "links", label: "Liên kết & CTA" },
   { key: "automation", label: "Automation" },
 ] as const;
 
@@ -23,9 +27,11 @@ type TabKey = (typeof TABS)[number]["key"];
 
 /** Field nào thuộc tab nào — để hiện chấm đỏ khi tab có lỗi validate. */
 const TAB_FIELDS: Record<TabKey, (keyof SchoolEditFormValues)[]> = {
-  basic: ["name", "slug", "country", "province", "level", "logo_url", "website_url", "map_embed_url", "is_active"],
+  basic: ["name", "slug", "country", "province", "level", "logo_url", "website_url", "is_active"],
+  location: ["map_embed_url"],
   facts: ["tuition_usd", "scholarship_up_to", "quick_facts", "cost_breakdown"],
   content: ["content_sections"],
+  links: ["show_cta", "related_slugs"],
   automation: ["official_rss_url", "auto_sync_enabled"],
 };
 
@@ -45,6 +51,8 @@ function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValue
       cost_breakdown: { currency: "", rows: [] },
       content_sections: [],
       auto_sync_enabled: false,
+      show_cta: true,
+      related_slugs: [],
     };
   }
   return {
@@ -64,6 +72,8 @@ function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValue
     content_sections: school.content_sections ?? [],
     official_rss_url: school.official_rss_url ?? undefined,
     auto_sync_enabled: school.auto_sync_enabled ?? false,
+    show_cta: school.show_cta ?? true,
+    related_slugs: school.related_slugs ?? [],
   };
 }
 
@@ -126,6 +136,12 @@ export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalPro
       }
       if (data.auto_sync_enabled || migration9Applied) {
         payload.auto_sync_enabled = data.auto_sync_enabled;
+      }
+      // Cột migration #10: cùng chiến lược null-safe
+      const migration10Applied = school != null && school.show_cta != null;
+      if (!data.show_cta || migration10Applied) payload.show_cta = data.show_cta;
+      if (data.related_slugs.length > 0 || migration10Applied) {
+        payload.related_slugs = data.related_slugs;
       }
 
       const response = await fetch(
@@ -198,9 +214,11 @@ export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalPro
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-              <div className={activeTab === "basic" ? "" : "hidden"}><BasicInfoTab /></div>
+              <div className={activeTab === "basic" ? "" : "hidden"}><BasicInfoTab isNew={school === null} /></div>
+              <div className={activeTab === "location" ? "" : "hidden"}><LocationMapTab /></div>
               <div className={activeTab === "facts" ? "" : "hidden"}><QuickFactsCostTab /></div>
               <div className={activeTab === "content" ? "" : "hidden"}><ContentBuilderTab /></div>
+              <div className={activeTab === "links" ? "" : "hidden"}><LinksCtaTab /></div>
               <div className={activeTab === "automation" ? "" : "hidden"}><AutomationTab /></div>
             </div>
 
