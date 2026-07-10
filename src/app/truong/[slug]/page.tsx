@@ -12,11 +12,22 @@ import {
   GraduationCap,
   MapPin,
 } from "lucide-react";
-import type { School } from "@/types";
+import type {
+  CostRow,
+  School,
+  SchoolAdmissionRequirements,
+  SchoolCostBreakdown,
+  SchoolSection,
+} from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
 import { schools as allSchools } from "@/data/schools";
 import { formatUsd } from "@/lib/schools";
+import { fetchSchoolBySlug, mergeSchoolPreferDb } from "@/lib/schools-server";
+import { sanitizeHtml } from "@/lib/sanitize";
+
+// ISR 5 phút — dữ liệu trường đổi qua admin/crawler, không cần realtime
+export const revalidate = 300;
 
 /** ── Mock school details (mở rộng từ schools.ts) ─────────────── */
 const schoolDetails: Record<string, School> = {
@@ -95,13 +106,17 @@ const schoolDetails: Record<string, School> = {
 };
 
 /**
- * getSchoolBySlug — mock fetch (sẽ nối Supabase sau khi apply migration #4).
+ * getSchoolBySlug — Supabase-first (service role, slug đã backfill #6):
+ * field nào DB có dữ liệu thật thì đè lên mock, phần mock giàu nội dung
+ * (3 trường schoolDetails) vẫn hiển thị cho tới khi crawler/admin điền DB.
+ * DB lỗi/thiếu env → fallback mock hoàn toàn (Nguyên tắc #6).
  */
-function getSchoolBySlug(slug: string): School | null {
-  // Ưu tiên schoolDetails (có description/highlights mở rộng)
-  if (schoolDetails[slug]) return schoolDetails[slug];
-  // Fallback: tìm trong allSchools có slug khớp
-  return allSchools.find((s) => s.slug === slug) ?? null;
+async function getSchoolBySlug(slug: string): Promise<School | null> {
+  const dbSchool = await fetchSchoolBySlug(slug);
+  const mock = schoolDetails[slug] ?? allSchools.find((s) => s.slug === slug) ?? null;
+
+  if (dbSchool && mock) return mergeSchoolPreferDb(mock, dbSchool);
+  return dbSchool ?? mock;
 }
 
 /** Generate metadata */
@@ -110,7 +125,7 @@ export async function generateMetadata({
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
-  const school = getSchoolBySlug(params.slug);
+  const school = await getSchoolBySlug(params.slug);
   if (!school) return { title: "Không tìm thấy trường" };
   return {
     title: `${school.name} — Du học ROG`,
@@ -138,7 +153,8 @@ function Breadcrumb({ name }: { name: string }) {
 
 function SidebarCard({ tuitionUsd, scholarshipUpTo }: { tuitionUsd: number; scholarshipUpTo?: number }) {
   return (
-    <div className="sticky top-24 rounded-xl bg-white p-6 shadow-md">
+    // sticky do wrapper sidebar quản lý (bọc chung với QuickFactsCard)
+    <div className="rounded-xl bg-white p-6 shadow-md">
       <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">
         Thông tin học phí
       </h3>
@@ -185,14 +201,201 @@ function SectionHeading({ icon: Icon, title }: { icon: typeof CheckCircle; title
   );
 }
 
+/** "16,000 – 18,000 CAD/năm" — tiền theo đơn vị gốc (không quy đổi USD) */
+function formatCostAmount(row: CostRow): string {
+  if (row.amountMin === null) return row.note ?? "—";
+  const fmt = (n: number) => n.toLocaleString("en-US");
+  const amount =
+    row.amountMax !== null && row.amountMax !== row.amountMin
+      ? `${fmt(row.amountMin)} – ${fmt(row.amountMax)}`
+      : fmt(row.amountMin);
+  return row.unit ? `${amount} ${row.unit}` : amount;
+}
+
+/** Quick facts sidebar — dữ liệu migration #5 (cột phẳng) + #7 (quick_facts JSONB) */
+function QuickFactsCard({ school }: { school: School }) {
+  const qf = school.quickFacts;
+  const facts: Array<{ label: string; value: string }> = [];
+
+  const foundedYear = school.foundedYear ?? qf?.foundedYear;
+  if (foundedYear) facts.push({ label: "Năm thành lập", value: String(foundedYear) });
+
+  const schoolType = school.schoolType ?? qf?.schoolType;
+  if (schoolType) facts.push({ label: "Loại trường", value: schoolType });
+
+  const students = school.totalStudents
+    ? school.totalStudents.toLocaleString("en-US")
+    : qf?.studentCount;
+  if (students) facts.push({ label: "Số lượng sinh viên", value: students });
+
+  const intakes = school.intakes?.length ? school.intakes : qf?.intakes;
+  if (intakes?.length) facts.push({ label: "Kỳ nhập học", value: intakes.join(", ") });
+
+  const websiteUrl = school.websiteUrl ?? qf?.websiteUrl;
+
+  if (facts.length === 0 && !websiteUrl) return null;
+
+  return (
+    <div className="rounded-xl bg-white p-6 shadow-md">
+      <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">
+        Thông tin nhanh
+      </h3>
+      <dl className="space-y-3">
+        {facts.map((f) => (
+          <div key={f.label} className="flex items-baseline justify-between gap-3 text-sm">
+            <dt className="shrink-0 text-slate-500">{f.label}</dt>
+            <dd className="text-right font-semibold text-slate-800">{f.value}</dd>
+          </div>
+        ))}
+        {websiteUrl && (
+          <div className="flex items-baseline justify-between gap-3 text-sm">
+            <dt className="shrink-0 text-slate-500">Website</dt>
+            <dd className="min-w-0 text-right font-semibold">
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                className="break-all text-primary hover:text-primary-light"
+              >
+                {websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              </a>
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+/** Bảng chi phí — cột cost_breakdown (migration #7) */
+function CostBreakdownSection({ data }: { data: SchoolCostBreakdown }) {
+  return (
+    <section>
+      <SectionHeading icon={DollarSign} title="Học phí & chi phí" />
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <th className="px-4 py-3 font-semibold">Khoản mục</th>
+              <th className="px-4 py-3 font-semibold">Chi phí ({data.currency}/năm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.map((row, idx) => (
+              <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50/60" : ""}>
+                <td className="px-4 py-2.5 text-slate-700">{row.label}</td>
+                <td className="px-4 py-2.5 font-semibold text-slate-800">
+                  {formatCostAmount(row)}
+                </td>
+              </tr>
+            ))}
+            {data.totalEstimate && (
+              <tr className="border-t-2 border-primary/20 bg-primary/5">
+                <td className="px-4 py-3 font-bold text-primary">{data.totalEstimate.label}</td>
+                <td className="px-4 py-3 font-bold text-primary">
+                  {formatCostAmount(data.totalEstimate)}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+/** Bảng điều kiện nhập học — cột admission_requirements (migration #7) */
+function AdmissionRequirementsSection({ data }: { data: SchoolAdmissionRequirements }) {
+  return (
+    <section>
+      <SectionHeading icon={CheckCircle} title="Điều kiện nhập học" />
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <th className="px-4 py-3 font-semibold">Bậc học</th>
+              <th className="px-4 py-3 font-semibold">GPA</th>
+              <th className="px-4 py-3 font-semibold">Tiếng Anh</th>
+              <th className="px-4 py-3 font-semibold">Yêu cầu khác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.map((row, idx) => (
+              <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50/60" : ""}>
+                <td className="px-4 py-2.5 font-semibold text-slate-800">{row.level}</td>
+                <td className="px-4 py-2.5 text-slate-700">{row.gpa ?? "—"}</td>
+                <td className="px-4 py-2.5 text-slate-700">{row.ielts ?? "—"}</td>
+                <td className="px-4 py-2.5 text-slate-700">{row.other ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {data.notes && <p className="mt-2 text-xs text-slate-500">{data.notes}</p>}
+    </section>
+  );
+}
+
+/** 1 section động — content_sections (migration #5, union html/list/table) */
+function ContentSectionBlock({ section }: { section: SchoolSection }) {
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-bold text-primary">{section.title}</h2>
+      {section.type === "html" && (
+        <div
+          className="space-y-3 text-sm leading-relaxed text-slate-700 [&_a]:text-primary [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-lg"
+          // Nguồn: admin/crawler qua service role (không phải input người dùng) + đã sanitize
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.content) }}
+        />
+      )}
+      {section.type === "list" && (
+        <ul className="space-y-2.5">
+          {section.items.map((item, idx) => (
+            <li key={idx} className="flex items-start gap-3">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-orange" aria-hidden />
+              <span className="text-sm text-slate-700">{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {section.type === "table" && (
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                {section.headers.map((h) => (
+                  <th key={h} className="px-4 py-3 font-semibold">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {section.rows.map((row, idx) => (
+                <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50/60" : ""}>
+                  {section.headers.map((h) => (
+                    <td key={h} className="px-4 py-2.5 text-slate-700">
+                      {row[h] ?? "—"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** ── Page chính ─────────────────────────────────────────────── */
 
-export default function SchoolDetailPage({
+export default async function SchoolDetailPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const school = getSchoolBySlug(params.slug);
+  const school = await getSchoolBySlug(params.slug);
   if (!school) notFound();
 
   const countryName =
@@ -296,6 +499,16 @@ export default function SchoolDetailPage({
               </section>
             )}
 
+            {/* Bảng chi phí (migration #7) */}
+            {school.costBreakdown && school.costBreakdown.rows.length > 0 && (
+              <CostBreakdownSection data={school.costBreakdown} />
+            )}
+
+            {/* Bảng điều kiện nhập học (migration #7) */}
+            {school.admissionRequirements && school.admissionRequirements.rows.length > 0 && (
+              <AdmissionRequirementsSection data={school.admissionRequirements} />
+            )}
+
             {/* Yêu cầu đầu vào */}
             {school.requirements && school.requirements.length > 0 && (
               <section>
@@ -317,14 +530,22 @@ export default function SchoolDetailPage({
                 </div>
               </section>
             )}
+
+            {/* Nội dung chi tiết động — content_sections (migration #5, từ crawler/admin) */}
+            {school.contentSections?.map((section, idx) => (
+              <ContentSectionBlock key={idx} section={section} />
+            ))}
           </div>
 
           {/* ── Cột phải: Sticky Sidebar ── */}
           <aside className="md:col-span-4">
-            <SidebarCard
-              tuitionUsd={school.tuitionUsd}
-              scholarshipUpTo={school.scholarshipUpTo}
-            />
+            <div className="sticky top-24 space-y-5">
+              <SidebarCard
+                tuitionUsd={school.tuitionUsd}
+                scholarshipUpTo={school.scholarshipUpTo}
+              />
+              <QuickFactsCard school={school} />
+            </div>
           </aside>
         </div>
       </div>

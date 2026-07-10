@@ -90,8 +90,8 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 3 | `20260709000003` | `lead_activities` (lead_id FK, staff_name, action_type, content, created_at) — nhật ký chăm sóc | ✅ Applied |
 | 4 | `20260710000004` | `schools.*` — thêm 9 cột: `slug` (unique partial index), `description`, `website_url`, `image_url`, `video_url`, `gallery_urls[]`, `highlights[]`, `programs[]`, `requirements[]` | ✅ Applied |
 | 5 | `20260710000005` | `schools.*` — thêm 6 cột: `founded_year`, `school_type`, `total_students`, `intakes[]`, `map_embed_url`, `content_sections` (JSONB discriminated union: html/list/table) + GIN index | ✅ Applied |
-| 6 | `20260710000006` | Backfill data: gán `slug` cho 22 trường seed trước khi có logic slug (idempotent, chỉ update row null) | ⚠️ **CHƯA chạy** |
-| 7 | `20260711000007` | `schools.*` — thêm 5 cột: `quick_facts`, `cost_breakdown`, `admission_requirements` (JSONB, Zod là nguồn chân lý) + `source_url`, `scraped_at` (audit crawler) | ⚠️ **CHƯA apply** — đã kiểm chứng bằng scrape-test 3 trường thật, xem `scripts/scrape-test/output/report.md` |
+| 6 | `20260710000006` | Backfill data: gán `slug` cho 22 trường seed trước khi có logic slug (idempotent, chỉ update row null) | ✅ Đã chạy (verify 0 row slug null) |
+| 7 | `20260711000007` | `schools.*` — thêm 5 cột: `quick_facts`, `cost_breakdown`, `admission_requirements` (JSONB, Zod là nguồn chân lý) + `source_url`, `scraped_at` (audit crawler) | ✅ Applied (kiểm chứng scrape-test: `scripts/scrape-test/output/report.md`) |
 
 ### Chi tiết từng bảng:
 
@@ -260,11 +260,11 @@ Resend  : ❌ chưa dùng
 - [x] Migration #3 (`lead_activities`) — ✅ Applied
 - [x] **Migration #4 (`school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
 - [x] **Migration #5 (`rich_school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
-- [x] Trang `/truong/[slug]` — ✅ ĐÃ XÂY (Server Component, 3 trường mock). Sẵn sàng nối Supabase
-- [ ] **Backfill slug** — 22 row cloud có `slug=null` (seed trước khi có slug): chạy
-  `supabase/migrations/20260710000006_backfill_school_slugs.sql` trên Dashboard → SQL Editor
-- [ ] **Migration #7 (`school_rich_content`) — ⚠️ CHƯA apply**: đã kiểm chứng schema bằng scrape-test
-  3 trường thật (report: `scripts/scrape-test/output/report.md`) — apply Dashboard khi chốt
+- [x] Trang `/truong/[slug]` — ✅ ĐÃ NỐI SUPABASE (v1.8.0): fetch theo slug qua `fetchSchoolBySlug`
+  (lib/schools-server.ts), merge ưu tiên DB đè mock (`mergeSchoolPreferDb`), ISR 300s;
+  render QuickFactsCard + CostBreakdown + AdmissionRequirements + content_sections (html sanitize)
+- [x] Backfill slug (#6) — ✅ Đã chạy (0 row slug null)
+- [x] Migration #7 (`school_rich_content`) — ✅ Applied (kiểm chứng scrape-test 3 trường, 0 lỗi Zod)
 - [ ] Crawler `scripts/crawler.ts` — CSS selectors đang là GIẢ ĐỊNH; selector THẬT đã có trong
   `scripts/scrape-test/parsers.ts` (.detail-school-info, .page-content-area, #toc_container) — hợp nhất khi crawl thật
 - [ ] Crawl thật cần upsert `on_conflict=slug` — nhiều trường think.edu.vn trùng 22 row seed (ball-state, manchester, winchester)
@@ -275,15 +275,16 @@ Resend  : ❌ chưa dùng
 
 ### Next Steps (ưu tiên)
 
-1. **Chạy backfill slug** (`20260710000006`) trên Supabase Dashboard — 22 row đang slug=null
-2. **Nối trang `/truong/[slug]` vào Supabase** — fetch theo slug (getSupabaseAdmin, RLS đã bao phủ),
-   render content_sections (html/list/table); fallback mock 3 trường hiện tại
-3. **Chỉnh CSS selectors crawler** theo DOM thật rồi crawl dữ liệu + điền thông tin thương hiệu
+1. **Crawl thật**: hợp nhất selector từ `scripts/scrape-test/parsers.ts` vào `scripts/crawler.ts`
+   + upsert `on_conflict=slug` (38 URL trong urls.json, nhiều trường trùng seed) → điền dữ liệu giàu vào DB
+2. **Xóa lead test** trên Supabase Dashboard (`delete from leads where full_name = 'TEST Claude production - xoá sau'`)
+3. **Điền thông tin thương hiệu** `src/config/site.ts` + ảnh thật thay placeholder
 
 ### Change Log
 
 | Ngày | Phiên | Thay đổi |
 |------|-------|---------|
+| 2026-07-10 | #11 — Trang chi tiết nối Supabase v1.8.0 | `fetchSchoolBySlug` + `mergeSchoolPreferDb` (lib/schools-server.ts, service role, fallback mock); page async + ISR 300s; QuickFactsCard sidebar (#5+#7), CostBreakdownSection, AdmissionRequirementsSection, ContentSectionBlock (html sanitize qua lib/sanitize.ts / list / table); verify e2e: DB row 200, mock merge giữ nội dung giàu, 404 đúng |
 | 2026-07-10 | #10 — Scrape-test + Migration #7 v1.8.0 | Kiểm chứng khả thi cào think.edu.vn (robots.txt OK, HTML tĩnh, selector thật: .detail-school-info/.page-content-area/#toc_container); Migration #7 (quick_facts/cost_breakdown/admission_requirements JSONB + source_url/scraped_at — CHƯA apply); +5 types v1.8.0 + 5 Zod schemas; scripts/scrape-test (scrape/parsers/report, robots-aware, delay 3s, offline re-parse); coverage report 3 trường (0 lỗi Zod); generate-urls.ts v2 nguồn danh-sach-truong theo level (38 trường + levels, hết rác); crawler.ts nhận levels từ urls.json |
 | 2026-07-10 | #9 — School Detail Page v1.7.0 | Trang `/truong/[slug]` Server Component; Hero gradient + logo + badges; 2-column grid (description, highlights, programs, requirements + sticky sidebar tuition/scholarship CTA); 3 trường mock (Ball State, UMass Boston, Green River College); generateMetadata SEO |
 | 2026-07-10 | #8 — Mega Menu DU HỌC v1.6.0 | StudyAbroadMegaMenu (desktop full-width, nav-bg: bg-navy, sidebar 6 nước + featured/related articles grid); Fix positioning: move Mega Menu outside `<li>` vào header-level wrapper; StudyDestination, StudyAbroadMegaMenuProps types; megaMenu mock data (6 nước, 24 bài viết); Article extended (imageUrl?, isHot?) |
