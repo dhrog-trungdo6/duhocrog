@@ -140,6 +140,7 @@ v1.7.0: SchoolProgram, SchoolSection (HtmlSection|ListSection|TableSection discr
         School/SchoolRow mở rộng (slug, description, media, quick facts, content_sections)
 v1.8.0: SchoolQuickFacts, CostRow, SchoolCostBreakdown, AdmissionRow, SchoolAdmissionRequirements
         (JSONB migration #7 — kiểm chứng bằng scrape-test think.edu.vn)
+v1.9.0: SchoolFormModalProps (modal Thêm/Sửa trường admin; Zod: schoolFormSchema trong validations)
 ```
 
 ---
@@ -157,7 +158,7 @@ v1.8.0: SchoolQuickFacts, CostRow, SchoolCostBreakdown, AdmissionRow, SchoolAdmi
 | Tìm Trường | `src/app/tim-truong/page.tsx` | v1.5.0 — hiển thị tất cả trường + `?country=` query |
 | Dịch vụ Visa | `src/app/dich-vu/visa/page.tsx` | v1.4.0 — 10 section landing |
 | Service Components | `src/components/services/` | v1.4.0 — ServiceTabs, ServiceCard, CountryBadges, DataTable, FaqAccordion |
-| Admin CRM | `src/app/admin/` + `src/components/admin/` | v1.3.0 — LeadsTab 2 cột (bảng + panel chi tiết/nhật ký), EventsTab CRUD, SchoolsTab CRUD + seed |
+| Admin CRM | `src/app/admin/` + `src/components/admin/` | **v1.9.0** — LeadsTab 2 cột (bảng + panel chi tiết/nhật ký), EventsTab CRUD; SchoolsTab: search bar + bảng 8 cột (thêm Tỉnh/Bang, Sửa) + SchoolFormModal (RHF + zodResolver, schoolFormSchema) + toggle active (soft delete) + seed |
 | FloatingCTA | `src/components/layout/FloatingCTA.tsx` | v1.0.0 — Zalo/Hotline/Đăng ký nổi |
 | LeadForm | `src/components/home/LeadForm.tsx` | v1.0.0 — Zod + honeypot |
 | EventsTabs | `src/components/home/EventsTabs.tsx` | v1.1.0 — upcoming/past tabs + empty state |
@@ -290,6 +291,7 @@ Resend  : ❌ chưa dùng
 
 | Ngày | Phiên | Thay đổi |
 |------|-------|---------|
+| 2026-07-11 | #13 — Admin Schools CRUD v1.9.0 + login RHF | Login page chuyển react-hook-form + zodResolver (tái dùng adminLoginSchema, tuân thủ Nguyên tắc #5); SchoolsTab viết lại: search bar, nút Thêm trường mới, cột Tỉnh/Bang + Hành động (Sửa), SchoolFormModal mới (overlay Tailwind thuần, RHF + zodResolver, schoolFormSchema tiếng Việt, option fallback country/province từ crawler); PATCH sửa trường qua modal; giữ toggle is_active = soft delete (rule 04, không xóa cứng); verify e2e auth 5/5 + schema test |
 | 2026-07-10 | #12 — Crawl thật 38/38 + Migration #8 | Chẩn đoán lỗi 400 batch crawl: KHÔNG phải think.edu.vn (trả 200) mà là PostgREST `on_conflict=slug` không suy ra được partial index → viết migration #8 (unique constraint thường, CHƯA apply); `batch-crawl.ts` chuyển upsert 2 bước GET→PATCH/POST + nhánh UPDATE không đè cột phá seed (`is_active`/`logo_url`/`image_url`/basics rỗng) + `level` ưu tiên `entry.levels` từ urls.json; chạy crawl 38/38 OK (35 insert inactive, 3 update enrich); khôi phục 3 row seed bị lần chạy đầu deactivate + xóa logo (verify 22 active) |
 | 2026-07-10 | #11 — Trang chi tiết nối Supabase v1.8.0 | `fetchSchoolBySlug` + `mergeSchoolPreferDb` (lib/schools-server.ts, service role, fallback mock); page async + ISR 300s; QuickFactsCard sidebar (#5+#7), CostBreakdownSection, AdmissionRequirementsSection, ContentSectionBlock (html sanitize qua lib/sanitize.ts / list / table); verify e2e: DB row 200, mock merge giữ nội dung giàu, 404 đúng |
 | 2026-07-10 | #10 — Scrape-test + Migration #7 v1.8.0 | Kiểm chứng khả thi cào think.edu.vn (robots.txt OK, HTML tĩnh, selector thật: .detail-school-info/.page-content-area/#toc_container); Migration #7 (quick_facts/cost_breakdown/admission_requirements JSONB + source_url/scraped_at — CHƯA apply); +5 types v1.8.0 + 5 Zod schemas; scripts/scrape-test (scrape/parsers/report, robots-aware, delay 3s, offline re-parse); coverage report 3 trường (0 lỗi Zod); generate-urls.ts v2 nguồn danh-sach-truong theo level (38 trường + levels, hết rác); crawler.ts nhận levels từ urls.json |

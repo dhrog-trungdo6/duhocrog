@@ -369,3 +369,13 @@ export interface SchoolRow {
   source_url: string | null;
   scraped_at: string | null;
 }
+
+// ── Admin Schools CRUD (v1.9.0) ────────────────────────────────────
+
+export interface SchoolFormModalProps {
+  /** null = tạo trường mới; SchoolRow = sửa trường có sẵn */
+  school: SchoolRow | null;
+  onClose: () => void;
+  /** Gọi sau khi lưu thành công — parent đóng modal + reload danh sách */
+  onSaved: () => void;
+}

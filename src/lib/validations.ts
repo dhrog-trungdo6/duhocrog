@@ -126,6 +126,30 @@ export const schoolInputSchema = z.object({
   scraped_at: z.string().datetime({ offset: true }).optional(),
 });
 
+/**
+ * Form admin Thêm/Sửa trường (SchoolFormModal) — subset của schoolInputSchema.
+ * Input số: component dùng setValueAs chuyển "" → undefined/null trước khi Zod validate.
+ */
+export const schoolFormSchema = schoolInputSchema
+  .pick({ name: true, country: true, province: true, level: true })
+  .extend({
+    tuition_usd: z
+      .number({
+        error: (issue) =>
+          issue.input === undefined ? "Nhập học phí USD/năm" : "Học phí phải là số",
+      })
+      .int("Học phí phải là số nguyên")
+      .min(0, "Học phí không âm")
+      .max(200_000, "Học phí tối đa 200.000 USD"),
+    scholarship_up_to: z
+      .number({ error: "% học bổng phải là số" })
+      .int("% học bổng phải là số nguyên")
+      .min(0, "% học bổng không âm")
+      .max(100, "% học bổng tối đa 100")
+      .nullable(),
+    is_active: z.boolean(),
+  });
+
 // ── Rich School Sections (Migration #5 — Zod Discriminated Union) ─
 
 export const htmlSectionSchema = z.object({
