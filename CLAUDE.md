@@ -79,6 +79,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 @.claude/rules/04-supabase-rls.md
 @.claude/rules/05-architecture-patch.md
 @.claude/rules/06-token-optimization.md
+@.claude/rules/07-webhook-n8n-integrity.md
 
 ---
 
