@@ -104,8 +104,8 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 8 | `20260711000008` | Thay partial index `idx_schools_slug` bằng unique constraint `schools_slug_key` — mở khóa PostgREST `on_conflict=slug` (partial index làm mọi upsert REST trả 400) | ✅ Applied (2026-07-11, verify: POST on_conflict=slug trả 200) |
 | 9 | `20260711000009` | `schools.official_rss_url` (text) + `auto_sync_enabled` (boolean default false) — cấu hình automation rule 10 (n8n theo dõi RSS) | ✅ Applied (2026-07-11, verify cột trả giá trị) |
 | 10 | `20260711000010` | `schools.show_cta` (boolean default true) + `related_slugs` (text[] default '{}') — khối CTA + Bài viết liên quan trang chi tiết | ✅ Applied (2026-07-11, verify cột trả giá trị) |
-| 11 | `20260711000011` | Student Portal: `leads.portal_code_hash` (text) + bảng `student_documents` (lead_id FK cascade, document_type, file_path, file_name, status, notes, RLS khóa anon, index lead_id+created_at desc) + bucket Storage `student-documents` (private, 10MB, PDF/JPEG/PNG) | ❌ **CHƯA apply** — chạy tay Dashboard |
-| 12 | `20260711000012` | Program Tags (kiểu ApplyBoard): `schools.is_high_demand/no_visa_cap/is_top_school/has_coop` (boolean) + `program_tags` (text[] + GIN index); `idx_schools_filter` → partial `where is_active=true`, tuition DESC | ❌ **CHƯA apply** — chạy tay Dashboard |
+| 11 | `20260711000011` | Student Portal: `leads.portal_code_hash` (text) + bảng `student_documents` (lead_id FK cascade, document_type, file_path, file_name, status, notes, RLS khóa anon, index lead_id+created_at desc) + bucket Storage `student-documents` (private, 10MB, PDF/JPEG/PNG) | ✅ Applied (2026-07-12, verify e2e 12/12: cấp mã → login → signed upload → duyệt → log CRM) |
+| 12 | `20260711000012` | Program Tags (kiểu ApplyBoard): `schools.is_high_demand/no_visa_cap/is_top_school/has_coop` (boolean) + `program_tags` (text[] + GIN index); `idx_schools_filter` → partial `where is_active=true`, tuition DESC | ✅ Applied (2026-07-12, verify cột trả giá trị + filter tags chạy) |
 
 ### Chi tiết từng bảng:
 
@@ -132,7 +132,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 - Index: `(lead_id, created_at DESC)`
 - action_type: `note` | `call` | `email` | `status_change` | `other`
 
-**student_documents** — Ví tài liệu số hóa Student Portal (migration #11, ❌ chưa apply):
+**student_documents** — Ví tài liệu số hóa Student Portal (migration #11, ✅ applied):
 - FK: `lead_id → leads(id) ON DELETE CASCADE`
 - RLS: **KHÔNG public** — chỉ service role; quyền học sinh enforce ở API qua cookie `student_session`
 - document_type: `passport` | `transcript` | `ielts_pte` | `sop` | `lor` | `financial`
@@ -261,7 +261,7 @@ src/
 ├── config/site.ts
 ├── lib/                   ← supabase/admin.ts, admin-auth.ts, portal-auth.ts, portal-server.ts, validations.ts, schools-server.ts, sanitize.ts, slug.ts
 └── types/index.ts         ← ~40 interfaces, 1 file duy nhất
-supabase/migrations/       ← #1–#10 ✅ applied cloud; #11 (student portal) ❌ CHƯA apply
+supabase/migrations/       ← #1–#12, tất cả ✅ applied cloud (verify 2026-07-12)
 scripts/                   ← batch-crawl.ts (crawler thật), scrape-test/ (parser + kiểm chứng), generate-urls.ts
 ```
 

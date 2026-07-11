@@ -150,6 +150,35 @@ export const schoolInputSchema = z.object({
 });
 
 /**
+ * GET /api/schools — query params lọc đa chiều (v1.13.0, faceted filtering rule 11).
+ * searchParams luôn là string → coerce số + transform tags "a,b" → ["a","b"].
+ * Slug tag boolean: high_demand | no_visa_cap | top_school | coop; còn lại là tag động (GIN).
+ */
+export const schoolQuerySchema = z.object({
+  country: z.string().trim().max(50).optional(),
+  province: z.string().trim().max(100).optional(),
+  level: z.enum(STUDY_LEVELS).optional(),
+  min_tuition: z.coerce.number().nonnegative().default(0),
+  max_tuition: z.coerce.number().nonnegative().optional(), // không default — thiếu = không chặn trên
+  min_scholarship: z.coerce.number().nonnegative().default(0),
+  search: z.string().trim().max(200).optional(),
+  tags: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .slice(0, 10)
+        : [],
+    ),
+});
+
+export type SchoolQueryOutput = z.output<typeof schoolQuerySchema>;
+
+/**
  * Form admin Thêm/Sửa trường (SchoolFormModal) — subset của schoolInputSchema.
  * Input số: component dùng setValueAs chuyển "" → undefined/null trước khi Zod validate.
  */
