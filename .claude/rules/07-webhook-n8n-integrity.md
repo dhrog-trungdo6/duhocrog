@@ -10,9 +10,8 @@
   constant-time nếu có thể (timingSafeEqual). Secret chỉ đặt trong `.env.local`/Vercel env.
 - **Idempotency**: Logic xử lý webhook phải an toàn khi bị gọi 2 lần với cùng payload
   (n8n retry). Ưu tiên UPSERT theo unique constraint thay vì INSERT:
-  - `schools` → `on_conflict=slug` (cần migration #8 `schools_slug_key` — partial index
-    cũ KHÔNG dùng được với PostgREST on_conflict, trả 400; khi chưa apply thì dùng
-    2 bước GET→PATCH/POST như `scripts/batch-crawl.ts`).
+  - `schools` → `on_conflict=slug` (unique constraint `schools_slug_key` — migration #8
+    ✅ đã apply 2026-07-11; chi tiết pattern upsert an toàn: rule 14).
   - `leads` → cân nhắc unique theo `phone` (+ khung thời gian) trước khi mở webhook lead,
     tránh 2 lead trùng nhau.
 - **Data Integrity**: Never trust webhook data. BẮT BUỘC parse payload bằng Zod schema

@@ -85,6 +85,8 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 @.claude/rules/10-content-enrichment-automation.md
 @.claude/rules/11-ai-agent-rag-readiness.md
 @.claude/rules/12-dynamic-toc-and-embeds.md
+@.claude/rules/13-ai-web-scraping-extraction.md
+@.claude/rules/14-idempotent-upsert-pattern.md
 
 ---
 
