@@ -226,14 +226,15 @@ src/
 │   ├── ui/                ← Button, Slider, Skeleton, ErrorBoundary
 │   ├── layout/            ← RogHeader (v1.6.0 Mega Menu), RogFooter, FloatingCTA, StudyAbroadMegaMenu (v1.6.0)
 │   ├── home/              ← 9 homepage sections + LeadForm
-│   ├── admin/             ← LeadsTab, EventsTab, SchoolsTab
+│   ├── admin/             ← LeadsTab, EventsTab, SchoolsTab, SchoolFormModal (6 tab) + school-form/
 │   ├── services/          ← v1.4.0: 5 components
 │   └── schools/           ← v1.5.0: SchoolFilter
-├── data/                  ← destinations (+studyAbroadMenuData), schools, megaMenu (v1.6.0), services, events, news, stats, partners, testimonials
+├── data/                  ← destinations, schools, megaMenu, ctaBox, services, events, news, stats, partners, testimonials
 ├── config/site.ts
-├── lib/                   ← supabase/admin.ts, admin-auth.ts, validations.ts
-└── types/index.ts         ← ~30 interfaces, 1 file duy nhất
-supabase/migrations/       ← #1 (initial), #2 (leads.note), #3 (lead_activities), #4 (school_details — CHƯA apply)
+├── lib/                   ← supabase/admin.ts, admin-auth.ts, validations.ts, schools-server.ts, sanitize.ts, slug.ts
+└── types/index.ts         ← ~35 interfaces, 1 file duy nhất
+supabase/migrations/       ← #1–#10, tất cả ✅ applied cloud (2026-07-11)
+scripts/                   ← batch-crawl.ts (crawler thật), scrape-test/ (parser + kiểm chứng), generate-urls.ts
 ```
 
 ---
@@ -242,8 +243,8 @@ supabase/migrations/       ← #1 (initial), #2 (leads.note), #3 (lead_activitie
 
 ```
 GitHub  : https://github.com/dhrog-trungdo6/duhocrog.git (main) ✅
-Vercel  : Auto-deploy từ main ✅
-Supabase: Kết nối + 3 migrations applied ✅
+Vercel  : Auto-deploy từ main ✅ (.vercel/repo.json)
+Supabase: Kết nối ✅ — 10/10 migrations applied (verify 2026-07-11); 57 schools active, RLS chuẩn
 Resend  : ❌ chưa dùng
 ```
 
@@ -251,60 +252,77 @@ Resend  : ❌ chưa dùng
 
 ## 📝 CẬP NHẬT GẦN NHẤT & HÀNH ĐỘNG TIẾP THEO
 
-### Trạng thái Modules
+> ⚙️ **Mục này được tự động ghi đè bởi lệnh `/handover`.**
+> Không sửa tay — mọi thay đổi sẽ bị overwrite lần `/handover` tiếp theo.
+> Trigger: khi context > 70% HOẶC khi kết thúc một giai đoạn lập trình lớn.
 
-| Module | Trạng thái |
-|--------|-----------|
-| Homepage v1 | ✅ |
-| SchoolFinder | ✅ |
-| EventsTabs | ✅ |
-| Lead Capture API | ✅ |
-| Admin CRM (Leads/Events/Schools) | ✅ |
-| Admin Auth (middleware + cookie) | ✅ |
-| Dịch vụ Visa (v1.4.0) | ✅ |
-| SchoolFilter + Tìm Trường (v1.5.0) | ✅ |
-| 🆕 Mega Menu DU HỌC (v1.6.0) | ✅ |
-| 🆕 School Detail Page (v1.7.0) | ✅ |
-| Supabase schema #1, #2, #3 | ✅ Applied cloud |
-| Supabase migration #4 (school_details) | ✅ Applied cloud |
-| 🆕 Supabase migration #5 (rich_school_details) | ✅ Applied cloud |
+### Trạng thái Modules (verify 2026-07-11, kiểm tra toàn vẹn full-stack)
+
+| Module | Trạng thái | Files chính |
+|--------|-----------|-------------|
+| Homepage (13 sections) | ✅ | src/app/page.tsx |
+| ⭐ SchoolFinder (link chi tiết) | ✅ | src/components/home/SchoolFinder.tsx |
+| EventsTabs | ✅ | src/components/home/EventsTabs.tsx |
+| Lead Capture API | ✅ | src/app/api/leads/route.ts |
+| Admin CRM (Leads/Events/Schools) | ✅ | src/app/admin/ + src/components/admin/ |
+| Admin Auth (RHF login + SHA-256 cookie) | ✅ | src/middleware.ts + src/lib/admin-auth.ts |
+| SchoolFormModal 6 tab v1.11.0 | ✅ | src/components/admin/school-form/ (6 sub-tabs) |
+| Trang chi tiết /truong/[slug] v1.11.0 | ✅ | TOC + Map + CTA + Related (src/app/truong/[slug]/page.tsx) |
+| Dịch vụ Visa / Tìm Trường / Mega Menu | ✅ | v1.4.0 / v1.5.0 / v1.6.0 |
+| Crawler think.edu.vn | ✅ 38/38 | scripts/batch-crawl.ts (⚠️ 35 trường content_sections rỗng) |
+| Supabase schema #1–#10 | ✅ Applied cloud | supabase/migrations/ |
+| Bộ rules 14 skill | ✅ | .claude/rules/01–14 |
+
+### API Routes (verify e2e 2026-07-11)
+
+| Route | Method | Trạng thái | Ghi chú |
+|-------|--------|-----------|---------|
+| /api/leads | POST / GET | ✅ | GET không cookie → 401 |
+| /api/leads/[id] (+/activities) | PATCH / GET / POST | ✅ | |
+| /api/events | GET | ✅ | public |
+| /api/schools | GET | ✅ | public — đã fix Data Cache (fetch no-store) |
+| /api/admin/login · logout | POST | ✅ | login sai → 401, Zod rỗng → 400 |
+| /api/admin/events (+[id]) | CRUD | ✅ | |
+| /api/admin/schools (+[id]) | CRUD + seed | ✅ | PATCH partial (form 6 tab) |
+
+### Hạ tầng & Tích hợp
+
+```
+GitHub  : main = origin/main ✅ (85f226b)
+Vercel  : linked, auto-deploy từ main ✅
+Supabase: 10/10 migrations applied; 57 schools (57 active, 0 slug null/trùng); RLS chuẩn (anon không đọc leads/inactive)
+Env     : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, VERCEL_OIDC_TOKEN, ADMIN_PASSWORD
+Resend  : ❌ chưa dùng
+```
+
+### Data Contract thay đổi gần nhất
+
+- v1.9.0–v1.11.0: SchoolFormModalProps; SchoolRow + official_rss_url/auto_sync_enabled (#9) + show_cta/related_slugs (#10); School + showCta/relatedSlugs; schoolFormSchema, schoolEditFormSchema + SchoolEditFormValues (validations)
+- ⚠️ getSupabaseAdmin dùng fetch `cache: "no-store"` (fix Data Cache đóng băng xuyên build) — KHÔNG gỡ
+
+### Nguyên tắc bất biến — trạng thái
+
+- [x] 1–8 đều đang tuân thủ (kiểm tra 2026-07-11: mọi form RHF+Zod, API unknown+safeParse, ErrorBoundary giữ nguyên, brand info chỉ ở site.ts, mock ở src/data)
 
 ### Vấn đề đang mở
 
-- [x] Migration #2 (`leads.note`) — ✅ Applied
-- [x] Migration #3 (`lead_activities`) — ✅ Applied
-- [x] **Migration #4 (`school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
-- [x] **Migration #5 (`rich_school_details`) — ✅ ĐÃ APPLY** (2026-07-10, user chạy Dashboard)
-- [x] Trang `/truong/[slug]` — ✅ ĐÃ NỐI SUPABASE (v1.8.0): fetch theo slug qua `fetchSchoolBySlug`
-  (lib/schools-server.ts), merge ưu tiên DB đè mock (`mergeSchoolPreferDb`), ISR 300s;
-  render QuickFactsCard + CostBreakdown + AdmissionRequirements + content_sections (html sanitize)
-- [x] Backfill slug (#6) — ✅ Đã chạy (0 row slug null)
-- [x] Migration #7 (`school_rich_content`) — ✅ Applied (kiểm chứng scrape-test 3 trường, 0 lỗi Zod)
-- [x] **Crawl thật — ✅ HOÀN THÀNH 38/38** (2026-07-10, `scripts/batch-crawl.ts` dùng parser thật
-  scrape-test, upsert 2 bước GET→PATCH/POST): 35 trường mới `is_active=false` chờ duyệt,
-  3 trường trùng seed (ball-state, manchester, winchester) được enrich dữ liệu giàu
-  (đã khôi phục `is_active=true` + logo sau sự cố lần chạy đầu đè cột)
-- [x] **Migration #8, #9, #10 — ✅ ĐÃ APPLY** (2026-07-11, user chạy Dashboard; verify:
-  on_conflict=slug 200, cột automation + show_cta/related_slugs trả giá trị)
-- [ ] **Duyệt 35 trường mới crawl** trong Admin SchoolsTab (`is_active=false`) → kiểm tra rồi bật active
-- [ ] `scripts/crawler.ts` cũ — selectors GIẢ ĐỊNH, đã bị `batch-crawl.ts` thay thế trên thực tế
-- [ ] Lead test trong bảng leads — xóa qua Supabase Dashboard
-- [ ] `src/config/site.ts` placeholder toàn bộ
-- [ ] Ảnh thật thay placeholder
-- [ ] Resend email notification
+- [ ] **Coverage parser crawler**: 35/38 trường có content_sections rỗng NHƯNG đã public (user bật active cả 57) → trang chi tiết mỏng — ưu tiên cao
+- [ ] Lead test trong bảng leads (1 row "TEST Claude production - xoá sau") — xóa tay Dashboard
+- [ ] `src/config/site.ts` placeholder toàn bộ + ảnh thật thay placeholder
+- [ ] Resend email notification (rule 08 đã có pattern, chưa implement)
+- [ ] `scripts/crawler.ts` cũ (selectors giả định) — đã bị batch-crawl.ts thay thế, cân nhắc dọn
 
-### Next Steps (ưu tiên)
+### Next Steps (3 việc làm ngay khi mở phiên mới)
 
-1. **Duyệt 35 trường mới crawl** trong Admin (`is_active=false`) — kiểm tra dữ liệu rồi bật active
-2. **Fix coverage parser crawler**: 35/38 trường crawl có `content_sections` rỗng (chỉ 3 trường
-   seed có sections) — tinh chỉnh selector `scripts/scrape-test/parsers.ts` rồi crawl lại
+1. **Fix coverage parser + crawl lại** — 35 trường đã public nhưng nội dung rỗng; tinh chỉnh selector scripts/scrape-test/parsers.ts (thử nhiều layout think.edu.vn), crawl lại theo rule 14 (upsert 1 bước, không đè cột Admin)
+2. **Điền thông tin thương hiệu** src/config/site.ts + ảnh thật — site đang public dữ liệu thật mà hotline/email còn placeholder
 3. **Xóa lead test** trên Supabase Dashboard (`delete from leads where full_name = 'TEST Claude production - xoá sau'`)
-4. **Điền thông tin thương hiệu** `src/config/site.ts` + ảnh thật thay placeholder
 
 ### Change Log
 
-| Ngày | Phiên | Thay đổi |
-|------|-------|---------|
+| Ngày | Giai đoạn | Thay đổi |
+|------|-----------|---------|
+| 2026-07-11 | #17 — Toàn vẹn + fix Data Cache + rules 13-14 + handover | Kiểm tra toàn vẹn full-stack (git/build/rules/migrations/RLS/e2e đều pass); phát hiện + fix Next Data Cache đóng băng response Supabase xuyên build (getSupabaseAdmin fetch no-store, /api/schools 22→57); rules 13 (AI scraping structured outputs) + 14 (idempotent upsert); user duyệt xong 57/57 trường active; handover |
 | 2026-07-11 | #16 — Form 6 tab + CTA/Related v1.11.0 | Migration #10 (show_cta + related_slugs — CHƯA apply); SchoolFormModal 6 tab: +Vị trí & Bản đồ (map input + preview iframe sandbox live) +Liên kết & CTA (toggle show_cta, textarea related slugs mỗi dòng 1); slug tự sinh client từ tên khi tạo mới (dừng khi admin gõ tay); trang chi tiết: CtaBox "Vì sao chọn ROG?" (src/data/ctaBox.ts, ẩn khi show_cta=false) + RelatedSchoolsSection (fetchSchoolsBySlugs giữ thứ tự); từ chối multi-select bậc học (level là cột lọc vật lý + composite index — đổi sang mảng cần thiết kế riêng) |
 | 2026-07-11 | #15 — TOC + Map + rule 11 | Rule 11 (AI Agent & RAG Readiness: plain_text_summary, faceted filtering cột phẳng); Trang /truong/[slug]: TableOfContents (details gập/mở, anchor + scroll-mt-24 mọi section, ≥3 mục mới hiện) + MapSection (iframe map_embed_url, guard https) ; Form Tab Tổng quan thêm website_url + map_embed_url (refine http(s)); verify e2e Ball State: TOC 16+ anchor nội dung, chi-phi/dieu-kien, tuition DB 27,496 đè mock | 
 | 2026-07-11 | #14 — Advanced School Form v1.10.0 + rules 07–10 | 4 rule mới (webhook n8n, notifications, event-driven, content enrichment); Migration #9 (official_rss_url + auto_sync_enabled — CHƯA apply); SchoolFormModal 4 tab: BasicInfo/QuickFactsCost/ContentBuilder/Automation (school-form/, mỗi file <300 dòng); Content Builder useFieldArray html·list·table (bảng có thêm/xóa hàng-cột, rename header remap key); schoolEditFormSchema + fix tableRowSchema annotation (z.input unknown vỡ zodResolver); payload null-safe cột #9 |
