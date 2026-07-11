@@ -1,13 +1,12 @@
 /**
- * Sinh danh sách URL trường từ think.edu.vn — nguồn: các trang danh mục theo bậc học
- * https://think.edu.vn/danh-sach-truong/{level}/ (card `.schools .post-item.school-item`).
+ * Sinh danh sách URL trường từ think.edu.vn — nguồn: trang tổng hợp
+ * https://think.edu.vn/danh-sach-truong/ (card `.post-item.school-item`).
  *
- * Ưu điểm so với cào link trang chủ (bản cũ): không dính rác (javascript:;, tel:,
- * trang chính sách/blog) và biết được BẬC HỌC thật của từng trường thay vì hardcode.
- *
- * ⚠️ Giới hạn: mỗi trang danh mục chỉ render tĩnh 10 trường đầu, phần còn lại load
- * bằng nút AJAX "Xem thêm" (admin-ajax). Phase này lấy 10/level là đủ dữ liệu test;
- * khi cần đầy đủ sẽ bổ sung gọi admin-ajax phân trang (robots.txt cho phép).
+ * v3 — FULL COVERAGE (~1060 trường): trang chỉ render tĩnh 10 card đầu, phần còn
+ * lại load qua nút "Xem thêm" → POST wp-admin/admin-ajax.php action=loadmore_schools
+ * (page=1..max_page-1, max_page đọc động từ `data-max_page` của nút — hiện 106).
+ * Bậc học của TỪNG trường parse từ excerpt card (link /danh-sach-truong/{level}),
+ * không còn phụ thuộc 5 trang danh mục như v2.
  *
  * Run: pnpm tsx scripts/generate-urls.ts
  * Output: scripts/urls.json — [{ url, levels: ["thpt", ...] }]
@@ -18,54 +17,89 @@ import * as path from "path";
 import axios from "axios";
 
 const USER_AGENT = "ROG-Edu-ScrapeTest/1.0 (education data research; contact: info@duhocrog.com)";
-const DELAY_MS = 3_000;
+const DELAY_MS = 2_000;
+const LIST_URL = "https://think.edu.vn/danh-sach-truong/";
+const AJAX_URL = "https://think.edu.vn/wp-admin/admin-ajax.php";
 
-/** Slug danh mục think.edu.vn → StudyLevel code của dự án */
-const LEVEL_PAGES: Record<string, string> = {
+/** Slug bậc học think.edu.vn → StudyLevel code của dự án (src/types STUDY_LEVELS) */
+const LEVEL_MAP: Record<string, string> = {
   thpt: "thpt",
   "cao-dang": "cao-dang",
   "dai-hoc": "dai-hoc",
+  "du-bi-dai-hoc": "dai-hoc", // dự bị đại học — gần nhất với dai-hoc trong enum dự án
   "sau-dai-hoc": "sau-dai-hoc",
   "hoc-tieng": "anh-ngu",
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Parse mọi card trường trong 1 đoạn HTML (trang tĩnh hoặc fragment AJAX) */
+function parseCards(html: string, found: Map<string, Set<string>>): number {
+  const $ = cheerio.load(html);
+  let count = 0;
+  $(".post-item.school-item").each((_, card) => {
+    const href = $(card).find(".post-title a[href]").first().attr("href") ?? "";
+    const m = href.match(/^https:\/\/think\.edu\.vn\/([a-z0-9-]+)\/?$/);
+    if (!m || m[1] === "danh-sach-truong") return;
+    const url = `https://think.edu.vn/${m[1]}/`;
+    if (!found.has(url)) found.set(url, new Set());
+
+    // Bậc học: link excerpt dạng /danh-sach-truong/{level-slug} (không có segment con)
+    $(card)
+      .find(".post-excerpt a[href]")
+      .each((_i, a) => {
+        const lm = ($(a).attr("href") ?? "").match(/danh-sach-truong\/([a-z-]+)\/?$/);
+        const code = lm ? LEVEL_MAP[lm[1]] : undefined;
+        if (code) found.get(url)!.add(code);
+      });
+    count++;
+  });
+  return count;
+}
+
 async function main() {
   // url → set level codes (1 trường có thể xuất hiện ở nhiều bậc học)
   const found = new Map<string, Set<string>>();
 
-  const slugs = Object.keys(LEVEL_PAGES);
-  for (let i = 0; i < slugs.length; i++) {
-    const catSlug = slugs[i];
-    const levelCode = LEVEL_PAGES[catSlug];
-    const pageUrl = `https://think.edu.vn/danh-sach-truong/${catSlug}/`;
-    console.log(`[${i + 1}/${slugs.length}] ${pageUrl}`);
+  // 1. Trang tĩnh: 10 card đầu + max_page của nút "Xem thêm"
+  console.log(`[static] ${LIST_URL}`);
+  const res = await axios.get(LIST_URL, { headers: { "User-Agent": USER_AGENT }, timeout: 20_000 });
+  const html = String(res.data);
+  const staticCount = parseCards(html, found);
+  const maxPage = Number(cheerio.load(html)(".loadmore-school").attr("data-max_page") ?? 0);
+  console.log(`   → ${staticCount} card tĩnh | max_page=${maxPage}`);
+  if (!maxPage || maxPage < 2) throw new Error("Không đọc được data-max_page từ nút Xem thêm");
 
+  // 2. AJAX loadmore: page=1..max_page-1 (page N trả về batch KẾ TIẾP trang hiện tại)
+  for (let page = 1; page < maxPage; page++) {
     try {
-      const res = await axios.get(pageUrl, {
-        headers: { "User-Agent": USER_AGENT },
+      const body = new URLSearchParams({
+        action: "loadmore_schools",
+        "query[post_type]": "post",
+        "query[post_status]": "publish",
+        "query[meta_query][relation]": "AND",
+        "query[meta_query][0][key]": "school",
+        "query[meta_query][0][value]": "school",
+        "query[meta_query][0][compare]": "LIKE",
+        page: String(page),
+      });
+      const ajaxRes = await axios.post(AJAX_URL, body.toString(), {
+        headers: {
+          "User-Agent": USER_AGENT,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
         timeout: 20_000,
       });
-      const $ = cheerio.load(String(res.data));
-
-      let count = 0;
-      $(".schools .school-item a[href], .post-item.school-item a[href]").each((_, el) => {
-        const href = $(el).attr("href") ?? "";
-        // Chỉ nhận trang trường dạng https://think.edu.vn/{slug}/ (1 cấp path)
-        const m = href.match(/^https:\/\/think\.edu\.vn\/([a-z0-9-]+)\/?$/);
-        if (!m || m[1] === "danh-sach-truong") return;
-        const url = `https://think.edu.vn/${m[1]}/`;
-        if (!found.has(url)) found.set(url, new Set());
-        found.get(url)!.add(levelCode);
-        count++;
-      });
-      console.log(`   → ${count} link card (unique tổng: ${found.size})`);
+      const count = parseCards(String(ajaxRes.data), found);
+      console.log(`[${page}/${maxPage - 1}] → ${count} card (unique tổng: ${found.size})`);
+      if (count === 0) {
+        console.log("   (fragment rỗng — hết dữ liệu, dừng sớm)");
+        break;
+      }
     } catch (err) {
-      console.error(`   ❌ ${err instanceof Error ? err.message : "fetch fail"}`);
+      console.error(`[${page}] ❌ ${err instanceof Error ? err.message : "fetch fail"}`);
     }
-
-    if (i < slugs.length - 1) await sleep(DELAY_MS);
+    if (page < maxPage - 1) await sleep(DELAY_MS);
   }
 
   const output = Array.from(found.entries())

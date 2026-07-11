@@ -9,6 +9,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import * as zlib from "zlib";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import {
@@ -36,10 +37,13 @@ import {
 // ─── Config ──────────────────────────────────────────────
 const INPUT_FILE = path.resolve(__dirname, "urls.json");  // Đổi về urls.json đầy đủ
 const OUTPUT_DIR = path.resolve(__dirname, "batch-output");
+const RAW_DIR = path.join(OUTPUT_DIR, "raw"); // cache HTML gzip — re-parse offline không cần cào lại
 const DELAY_MS = 2_000;
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ROG-Edu/1.0";
+// RESUME=1: slug đã có HTML cache thì parse offline từ cache (không fetch, không delay)
+const RESUME = process.env.RESUME === "1";
 
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+fs.mkdirSync(RAW_DIR, { recursive: true });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -87,7 +91,14 @@ async function upsertSchool(row: Record<string, unknown>): Promise<string> {
 
 // ─── Types ───────────────────────────────────────────────
 interface UrlEntry { url: string; levels?: string[] }
-interface CrawlStats { total: number; success: number; failed: number; errors: Array<{ url: string; error: string }> }
+interface CrawlStats {
+  total: number;
+  success: number;
+  failed: number;
+  fromCache: number;
+  emptySections: string[]; // slug các trường parse ra 0 content_sections (theo dõi coverage)
+  errors: Array<{ url: string; error: string }>;
+}
 
 function slugFromUrl(url: string): string {
   const parts = new URL(url).pathname.split("/").filter(Boolean);
@@ -95,14 +106,27 @@ function slugFromUrl(url: string): string {
 }
 
 // ─── Crawl 1 URL ────────────────────────────────────────
-async function crawlOne(entry: UrlEntry, i: number, total: number, stats: CrawlStats): Promise<void> {
+/** @returns true nếu đã fetch qua mạng (cần delay), false nếu đọc từ cache */
+async function crawlOne(entry: UrlEntry, i: number, total: number, stats: CrawlStats): Promise<boolean> {
   const { url } = entry;
   const slug = slugFromUrl(url);
-  console.log(`[${i + 1}/${total}] 🌐 ${slug}`);
-  
+  const rawFile = path.join(RAW_DIR, `${slug}.html.gz`);
+  let fetchedFromNetwork = false;
+
   try {
-    const res = await axios.get(url, { headers: { "User-Agent": UA }, timeout: 20_000 });
-    const $ = cheerio.load(String(res.data));
+    let html: string;
+    if (RESUME && fs.existsSync(rawFile)) {
+      html = zlib.gunzipSync(fs.readFileSync(rawFile)).toString("utf-8");
+      stats.fromCache++;
+      console.log(`[${i + 1}/${total}] 📦 ${slug} (cache)`);
+    } else {
+      console.log(`[${i + 1}/${total}] 🌐 ${slug}`);
+      const res = await axios.get(url, { headers: { "User-Agent": UA }, timeout: 20_000 });
+      html = String(res.data);
+      fetchedFromNetwork = true;
+      fs.writeFileSync(rawFile, zlib.gzipSync(html)); // cache để re-parse offline
+    }
+    const $ = cheerio.load(html);
     const warnings: string[] = [];
     
     const basic = parseBasicInfo($, warnings);
@@ -124,16 +148,20 @@ async function crawlOne(entry: UrlEntry, i: number, total: number, stats: CrawlS
       scraped_at: new Date().toISOString(),
     };
     
+    const sectionCount = (row.content_sections as unknown[]).length;
+    if (sectionCount === 0) stats.emptySections.push(slug);
+
     const action = await upsertSchool(row);
     stats.success++;
     const warn = warnings.length > 0 ? ` ⚠️ ${warnings.length}w` : "";
-    console.log(`  ✅ ${basic.name} [${action}]${warn}`);
+    console.log(`  ✅ ${basic.name} [${action}] ${sectionCount} sections${warn}`);
   } catch (err) {
     stats.failed++;
     const msg = (err as Error).message;
     stats.errors.push({ url, error: msg });
     console.error(`  ❌ ${msg.substring(0, 120)}`);
   }
+  return fetchedFromNetwork;
 }
 
 // ─── Main ────────────────────────────────────────────────
@@ -144,14 +172,21 @@ async function main() {
   const entries: UrlEntry[] = JSON.parse(fs.readFileSync(INPUT_FILE, "utf-8"));
   console.log(`📋 ${entries.length} URLs\n`);
   
-  const stats: CrawlStats = { total: entries.length, success: 0, failed: 0, errors: [] };
-  
+  const stats: CrawlStats = {
+    total: entries.length, success: 0, failed: 0, fromCache: 0, emptySections: [], errors: [],
+  };
+
   for (let i = 0; i < entries.length; i++) {
-    await crawlOne(entries[i], i, entries.length, stats);
-    if (i < entries.length - 1) await new Promise(r => setTimeout(r, DELAY_MS));
+    const fetched = await crawlOne(entries[i], i, entries.length, stats);
+    if (fetched && i < entries.length - 1) await new Promise(r => setTimeout(r, DELAY_MS));
   }
-  
-  console.log(`\n📊 DONE | ✅ ${stats.success} ❌ ${stats.failed}/${stats.total}`);
+
+  console.log(`\n📊 DONE | ✅ ${stats.success} ❌ ${stats.failed}/${stats.total} | 📦 cache ${stats.fromCache} | ⚠️ sections rỗng: ${stats.emptySections.length}`);
+  fs.writeFileSync(path.join(OUTPUT_DIR, "summary.json"), JSON.stringify({
+    finishedAt: new Date().toISOString(),
+    total: stats.total, success: stats.success, failed: stats.failed,
+    fromCache: stats.fromCache, emptySections: stats.emptySections,
+  }, null, 2));
   if (stats.errors.length > 0) {
     fs.writeFileSync(path.join(OUTPUT_DIR, "errors.json"), JSON.stringify(stats.errors, null, 2));
   }

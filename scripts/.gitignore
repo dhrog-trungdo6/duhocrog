@@ -5,3 +5,6 @@ schools_failed.json
 
 # Scrape-test output (raw HTML + parsed JSON + report)
 scrape-test/output/
+
+# Batch crawl output (raw HTML cache gzip + summary)
+batch-output/
