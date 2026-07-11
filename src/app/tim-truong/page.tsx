@@ -15,6 +15,7 @@ import {
 } from "@/lib/schools";
 import { useSchools } from "@/hooks/useSchools";
 import SchoolFilter from "@/components/schools/SchoolFilter";
+import { ProgramTags } from "@/components/schools/ProgramTags";
 
 /** Options cho SchoolFilter — hằng module, derive từ data tĩnh nên không cần useMemo */
 const countryOptions: FilterOption[] = destinations.map((d) => ({
@@ -152,6 +153,8 @@ function TimTruongContent() {
                         aria-hidden
                       />
                     </div>
+                    {/* Nhãn thông minh (v1.13.0) — học bổng đã có badge riêng bên dưới */}
+                    <ProgramTags school={school} showScholarship={false} className="mt-3" />
                     <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
                       <span className="text-base font-bold text-primary">
                         {formatUsd(school.tuitionUsd)}

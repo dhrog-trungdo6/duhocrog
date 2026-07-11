@@ -1,9 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import type { SchoolEditFormValues } from "@/lib/validations";
 import { FieldErr, inputClasses, labelClasses } from "./ui";
+
+/** 4 cờ nhãn thông minh (migration #12) — checkbox grid. */
+const TAG_FLAGS: { name: "is_high_demand" | "no_visa_cap" | "is_top_school" | "has_coop"; label: string; hint: string }[] = [
+  { name: "is_high_demand", label: "Ngành khát nhân lực", hint: "Ngành trong danh sách thiếu hụt lao động nước sở tại" },
+  { name: "no_visa_cap", label: "Không giới hạn Visa", hint: "Chương trình không bị siết chỉ tiêu cấp thị thực" },
+  { name: "is_top_school", label: "Trường Top đầu", hint: "Thứ hạng cao trên bảng xếp hạng uy tín" },
+  { name: "has_coop", label: "Thực tập Co-op", hint: "Khóa học tích hợp thực tập hưởng lương" },
+];
 
 /** "" → undefined cho field text optional (Zod min(1) khi có giá trị). */
 const emptyToUndef = (v: string) => (v === "" || v == null ? undefined : v);
@@ -17,10 +26,27 @@ export function QuickFactsCostTab() {
   const {
     register,
     control,
+    getValues,
+    setValue,
     formState: { errors },
   } = useFormContext<SchoolEditFormValues>();
 
   const costRows = useFieldArray({ control, name: "cost_breakdown.rows" });
+
+  // Textarea tag phụ động mỗi dòng 1 tag — state text cục bộ, form value là string[]
+  const [tagsText, setTagsText] = useState(() => (getValues("program_tags") ?? []).join("\n"));
+  const onTagsChange = (text: string) => {
+    setTagsText(text);
+    const tags = text
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    setValue("program_tags", tags, { shouldDirty: true, shouldValidate: true });
+  };
+  const tagsError = errors.program_tags;
+  const tagsErrorMessage =
+    tagsError?.message ??
+    (Array.isArray(tagsError) ? tagsError.find((e) => e?.message)?.message : undefined);
 
   return (
     <div className="space-y-5">
@@ -50,6 +76,49 @@ export function QuickFactsCostTab() {
           />
           <FieldErr message={errors.scholarship_up_to?.message} />
         </div>
+      </fieldset>
+
+      {/* ── Nhãn thông minh Program Tags (migration #12, v1.13.0) ── */}
+      <fieldset className="border-t border-slate-100 pt-5">
+        <legend className="mb-2 text-sm font-bold text-slate-800">
+          Cấu hình nhãn thông minh (Program Tags)
+        </legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {TAG_FLAGS.map((flag) => (
+            <label
+              key={flag.name}
+              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-100 p-3 hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                {...register(flag.name)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+              />
+              <span>
+                <span className="block text-xs font-bold text-slate-700">{flag.label}</span>
+                <span className="block text-[10px] text-slate-400">{flag.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="mt-3">
+          <label htmlFor="sf-program-tags" className={labelClasses}>
+            Tag phụ động (mỗi dòng 1 tag, tối đa 10 — vd: Popular, Incentivized)
+          </label>
+          <textarea
+            id="sf-program-tags"
+            rows={3}
+            value={tagsText}
+            onChange={(e) => onTagsChange(e.target.value)}
+            placeholder={"Popular\nIncentivized"}
+            className={inputClasses}
+          />
+          <FieldErr message={tagsErrorMessage} />
+        </div>
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          ⚠️ Các nhãn này lưu vào cột migration #12. Nếu cloud chưa apply migration #12,
+          hãy giữ mặc định (tất cả tắt, danh sách trống) — thay đổi sẽ báo lỗi lưu.
+        </p>
       </fieldset>
 
       {/* ── Quick Facts (JSONB quick_facts) ── */}

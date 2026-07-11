@@ -116,6 +116,12 @@ export interface School {
   // ── Migration #10 — CTA + bài liên quan ──
   showCta?: boolean; // undefined = hiện (mặc định)
   relatedSlugs?: string[];
+  // ── Migration #12 — Program Tags (v1.13.0, kiểu ApplyBoard) ──
+  isHighDemand?: boolean; // Ngành khát nhân lực
+  noVisaCap?: boolean; // Không giới hạn visa
+  isTopSchool?: boolean; // Trường top đầu
+  hasCoop?: boolean; // Co-op / thực tập hưởng lương
+  programTags?: string[]; // tag phụ động: ['Popular', 'Incentivized']...
 }
 
 // ── Rich content JSONB (Migration #7 — schema scrape-test) ──────────
@@ -379,6 +385,12 @@ export interface SchoolRow {
   // ── Migration #10 — CTA + related (undefined khi cloud chưa apply) ──
   show_cta?: boolean | null;
   related_slugs?: string[] | null;
+  // ── Migration #12 — Program Tags (undefined khi cloud chưa apply) ──
+  is_high_demand?: boolean | null;
+  no_visa_cap?: boolean | null;
+  is_top_school?: boolean | null;
+  has_coop?: boolean | null;
+  program_tags?: string[] | null;
 }
 
 // ── Admin Schools CRUD (v1.9.0) ────────────────────────────────────

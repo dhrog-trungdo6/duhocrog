@@ -29,7 +29,17 @@ type TabKey = (typeof TABS)[number]["key"];
 const TAB_FIELDS: Record<TabKey, (keyof SchoolEditFormValues)[]> = {
   basic: ["name", "slug", "country", "province", "level", "logo_url", "website_url", "is_active"],
   location: ["map_embed_url"],
-  facts: ["tuition_usd", "scholarship_up_to", "quick_facts", "cost_breakdown"],
+  facts: [
+    "tuition_usd",
+    "scholarship_up_to",
+    "quick_facts",
+    "cost_breakdown",
+    "is_high_demand",
+    "no_visa_cap",
+    "is_top_school",
+    "has_coop",
+    "program_tags",
+  ],
   content: ["content_sections"],
   links: ["show_cta", "related_slugs"],
   automation: ["official_rss_url", "auto_sync_enabled"],
@@ -53,6 +63,11 @@ function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValue
       auto_sync_enabled: false,
       show_cta: true,
       related_slugs: [],
+      is_high_demand: false,
+      no_visa_cap: false,
+      is_top_school: false,
+      has_coop: false,
+      program_tags: [],
     };
   }
   return {
@@ -74,6 +89,11 @@ function toDefaults(school: SchoolRow | null): DefaultValues<SchoolEditFormValue
     auto_sync_enabled: school.auto_sync_enabled ?? false,
     show_cta: school.show_cta ?? true,
     related_slugs: school.related_slugs ?? [],
+    is_high_demand: school.is_high_demand ?? false,
+    no_visa_cap: school.no_visa_cap ?? false,
+    is_top_school: school.is_top_school ?? false,
+    has_coop: school.has_coop ?? false,
+    program_tags: school.program_tags ?? [],
   };
 }
 
@@ -142,6 +162,18 @@ export function SchoolFormModal({ school, onClose, onSaved }: SchoolFormModalPro
       if (!data.show_cta || migration10Applied) payload.show_cta = data.show_cta;
       if (data.related_slugs.length > 0 || migration10Applied) {
         payload.related_slugs = data.related_slugs;
+      }
+      // Cột migration #12 (Program Tags): cùng chiến lược null-safe
+      const migration12Applied = school != null && school.is_high_demand != null;
+      const anyTagOn = data.is_high_demand || data.no_visa_cap || data.is_top_school || data.has_coop;
+      if (anyTagOn || migration12Applied) {
+        payload.is_high_demand = data.is_high_demand;
+        payload.no_visa_cap = data.no_visa_cap;
+        payload.is_top_school = data.is_top_school;
+        payload.has_coop = data.has_coop;
+      }
+      if (data.program_tags.length > 0 || migration12Applied) {
+        payload.program_tags = data.program_tags;
       }
 
       const response = await fetch(

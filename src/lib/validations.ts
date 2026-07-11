@@ -141,6 +141,12 @@ export const schoolInputSchema = z.object({
     )
     .max(12)
     .optional(),
+  // ── Migration #12 — Program Tags (rule 11). KHÔNG default, lý do như trên ──
+  is_high_demand: z.boolean().optional(),
+  no_visa_cap: z.boolean().optional(),
+  is_top_school: z.boolean().optional(),
+  has_coop: z.boolean().optional(),
+  program_tags: z.array(z.string().trim().min(1).max(50)).max(10).optional(),
 });
 
 /**
@@ -344,6 +350,12 @@ export const schoolEditFormSchema = schoolFormSchema.extend({
   auto_sync_enabled: z.boolean(),
   show_cta: z.boolean(),
   related_slugs: schoolInputSchema.shape.related_slugs.unwrap(),
+  // Program Tags (migration #12) — form luôn có giá trị, payload gửi null-safe ở modal
+  is_high_demand: z.boolean(),
+  no_visa_cap: z.boolean(),
+  is_top_school: z.boolean(),
+  has_coop: z.boolean(),
+  program_tags: schoolInputSchema.shape.program_tags.unwrap(),
 });
 
 export type SchoolEditFormValues = z.infer<typeof schoolEditFormSchema>;

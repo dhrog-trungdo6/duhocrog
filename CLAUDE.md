@@ -105,6 +105,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 9 | `20260711000009` | `schools.official_rss_url` (text) + `auto_sync_enabled` (boolean default false) — cấu hình automation rule 10 (n8n theo dõi RSS) | ✅ Applied (2026-07-11, verify cột trả giá trị) |
 | 10 | `20260711000010` | `schools.show_cta` (boolean default true) + `related_slugs` (text[] default '{}') — khối CTA + Bài viết liên quan trang chi tiết | ✅ Applied (2026-07-11, verify cột trả giá trị) |
 | 11 | `20260711000011` | Student Portal: `leads.portal_code_hash` (text) + bảng `student_documents` (lead_id FK cascade, document_type, file_path, file_name, status, notes, RLS khóa anon, index lead_id+created_at desc) + bucket Storage `student-documents` (private, 10MB, PDF/JPEG/PNG) | ❌ **CHƯA apply** — chạy tay Dashboard |
+| 12 | `20260711000012` | Program Tags (kiểu ApplyBoard): `schools.is_high_demand/no_visa_cap/is_top_school/has_coop` (boolean) + `program_tags` (text[] + GIN index); `idx_schools_filter` → partial `where is_active=true`, tuition DESC | ❌ **CHƯA apply** — chạy tay Dashboard |
 
 ### Chi tiết từng bảng:
 
@@ -166,6 +167,10 @@ v1.12.0: Student Portal — DOCUMENT_TYPES/DocumentType/DocumentStatus (+labels)
          StudentProfile (subset an toàn của LeadRow), LeadRow +portal_code_hash?;
          Zod: portalLoginSchema, fileUploadSchema (client 10MB PDF/JPEG/PNG),
          documentUploadRequestSchema, documentMetaSchema, documentReviewSchema
+v1.13.0: Program Tags (migration #12) — School +isHighDemand?/noVisaCap?/isTopSchool?/hasCoop?/
+         programTags?; SchoolRow bản snake_case (optional — null-safe khi chưa apply);
+         component ProgramTags (schools/) render card /tim-truong + hero /truong/[slug];
+         /api/schools phân trang lặp (PostgREST cap 1000) + fallback 42703 khi thiếu cột
 ```
 
 ---

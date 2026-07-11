@@ -39,6 +39,11 @@ export function rowToSchool(row: SchoolRow): School {
     scrapedAt: row.scraped_at ?? undefined,
     showCta: row.show_cta ?? undefined,
     relatedSlugs: row.related_slugs ?? undefined,
+    isHighDemand: row.is_high_demand ?? undefined,
+    noVisaCap: row.no_visa_cap ?? undefined,
+    isTopSchool: row.is_top_school ?? undefined,
+    hasCoop: row.has_coop ?? undefined,
+    programTags: row.program_tags ?? undefined,
   };
 }
 

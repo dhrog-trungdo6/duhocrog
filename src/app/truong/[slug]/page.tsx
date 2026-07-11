@@ -30,6 +30,7 @@ import {
   mergeSchoolPreferDb,
 } from "@/lib/schools-server";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { ProgramTags } from "@/components/schools/ProgramTags";
 
 // ISR 5 phút — dữ liệu trường đổi qua admin/crawler, không cần realtime
 export const revalidate = 300;
@@ -573,6 +574,8 @@ export default async function SchoolDetailPage({
                   {STUDY_LEVEL_LABELS[school.level]}
                 </span>
               </div>
+              {/* Nhãn thông minh Program Tags (v1.13.0) */}
+              <ProgramTags school={school} className="mt-3 justify-center md:justify-start" />
             </div>
           </div>
         </div>
