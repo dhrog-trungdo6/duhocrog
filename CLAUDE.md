@@ -104,6 +104,7 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 | 8 | `20260711000008` | Thay partial index `idx_schools_slug` bằng unique constraint `schools_slug_key` — mở khóa PostgREST `on_conflict=slug` (partial index làm mọi upsert REST trả 400) | ✅ Applied (2026-07-11, verify: POST on_conflict=slug trả 200) |
 | 9 | `20260711000009` | `schools.official_rss_url` (text) + `auto_sync_enabled` (boolean default false) — cấu hình automation rule 10 (n8n theo dõi RSS) | ✅ Applied (2026-07-11, verify cột trả giá trị) |
 | 10 | `20260711000010` | `schools.show_cta` (boolean default true) + `related_slugs` (text[] default '{}') — khối CTA + Bài viết liên quan trang chi tiết | ✅ Applied (2026-07-11, verify cột trả giá trị) |
+| 11 | `20260711000011` | Student Portal: `leads.portal_code_hash` (text) + bảng `student_documents` (lead_id FK cascade, document_type, file_path, file_name, status, notes, RLS khóa anon, index lead_id+created_at desc) + bucket Storage `student-documents` (private, 10MB, PDF/JPEG/PNG) | ❌ **CHƯA apply** — chạy tay Dashboard |
 
 ### Chi tiết từng bảng:
 
@@ -130,6 +131,13 @@ Navy:          #0B2545   ← footer, testimonial, Mega Menu bg (navy)
 - Index: `(lead_id, created_at DESC)`
 - action_type: `note` | `call` | `email` | `status_change` | `other`
 
+**student_documents** — Ví tài liệu số hóa Student Portal (migration #11, ❌ chưa apply):
+- FK: `lead_id → leads(id) ON DELETE CASCADE`
+- RLS: **KHÔNG public** — chỉ service role; quyền học sinh enforce ở API qua cookie `student_session`
+- document_type: `passport` | `transcript` | `ielts_pte` | `sop` | `lor` | `financial`
+- status: `pending_review` → `approved` | `rejected` (rejected bắt buộc notes)
+- File thật nằm bucket private `student-documents`, path `{leadId}/{type}/{ts}-{file}`
+
 ---
 
 ## Data Contract cốt lõi
@@ -154,6 +162,10 @@ v1.8.0: SchoolQuickFacts, CostRow, SchoolCostBreakdown, AdmissionRow, SchoolAdmi
 v1.9.0: SchoolFormModalProps (modal Thêm/Sửa trường admin; Zod: schoolFormSchema trong validations)
 v1.10.0: SchoolRow +official_rss_url/auto_sync_enabled (optional — migration #9);
          schoolEditFormSchema + SchoolEditFormValues (validations — form 4 tab)
+v1.12.0: Student Portal — DOCUMENT_TYPES/DocumentType/DocumentStatus (+labels), StudentDocument,
+         StudentProfile (subset an toàn của LeadRow), LeadRow +portal_code_hash?;
+         Zod: portalLoginSchema, fileUploadSchema (client 10MB PDF/JPEG/PNG),
+         documentUploadRequestSchema, documentMetaSchema, documentReviewSchema
 ```
 
 ---
@@ -204,8 +216,17 @@ Tin tức → #news
 | `/api/admin/logout` | POST | ✅ v1.0.0 |
 | `/api/admin/events` (+[id]) | CRUD | ✅ v1.0.0 |
 | `/api/admin/schools` (+[id]) | CRUD + seed | ✅ v1.0.0 |
+| `/api/portal/login` · `logout` | POST | ✅ v1.12.0 — SĐT + mã truy cập (so hash leads.portal_code_hash) |
+| `/api/portal/documents` | GET/POST | ✅ v1.12.0 — Ví tài liệu; POST verify prefix `{leadId}/` + log lead_activities |
+| `/api/portal/documents/upload-url` | POST | ✅ v1.12.0 — signed upload URL (PUT thẳng Storage, né limit 4.5MB Vercel) |
+| `/api/admin/portal/code` | POST | ✅ v1.12.0 — cấp mã portal, trả plaintext 1 lần, DB chỉ lưu hash |
+| `/api/admin/documents/[id]` | PATCH | ✅ v1.12.0 — duyệt/từ chối tài liệu (rejected bắt buộc notes) |
 
 > Auth: `middleware.ts` (Edge/Web Crypto) + `admin-auth.ts` (Node crypto) — cùng SHA-256 token.
+> Student Portal: cookie `student_session` = `{leadId}.{SHA-256("rog-student:"+leadId+":"+ADMIN_PASSWORD)}` —
+> middleware.ts (Edge) + `portal-auth.ts` (Node) cùng công thức, sửa 1 nơi phải sửa cả 2.
+> ⚠️ Middleware chỉ che PAGES (/admin, /portal) — mọi route `/api/admin/*` PHẢI tự gọi
+> `isAdminRequest()`, mọi route `/api/portal/*` PHẢI tự gọi `getStudentLeadId()`.
 
 ---
 
@@ -220,20 +241,22 @@ src/
 │   ├── crm/               ← redirect → /admin
 │   ├── dich-vu/visa/      ← v1.4.0
 │   ├── tim-truong/        ← v1.5.0
-│   └── api/               ← 10 routes
-├── middleware.ts
+│   ├── portal/            ← v1.12.0 Student Portal: login/ + (dashboard)/{layout,page,ho-so}
+│   └── api/               ← 16 routes (leads, events, schools, admin/*, portal/*)
+├── middleware.ts          ← bảo vệ /admin + /portal (Edge, SHA-256 Web Crypto)
 ├── components/
 │   ├── ui/                ← Button, Slider, Skeleton, ErrorBoundary
 │   ├── layout/            ← RogHeader (v1.6.0 Mega Menu), RogFooter, FloatingCTA, StudyAbroadMegaMenu (v1.6.0)
 │   ├── home/              ← 9 homepage sections + LeadForm
 │   ├── admin/             ← LeadsTab, EventsTab, SchoolsTab, SchoolFormModal (6 tab) + school-form/
 │   ├── services/          ← v1.4.0: 5 components
-│   └── schools/           ← v1.5.0: SchoolFilter
+│   ├── schools/           ← v1.5.0: SchoolFilter
+│   └── portal/            ← v1.12.0: PortalSidebar, ApplicationProgressBar, DocumentUploadCard, DocumentList
 ├── data/                  ← destinations, schools, megaMenu, ctaBox, services, events, news, stats, partners, testimonials
 ├── config/site.ts
-├── lib/                   ← supabase/admin.ts, admin-auth.ts, validations.ts, schools-server.ts, sanitize.ts, slug.ts
-└── types/index.ts         ← ~35 interfaces, 1 file duy nhất
-supabase/migrations/       ← #1–#10, tất cả ✅ applied cloud (2026-07-11)
+├── lib/                   ← supabase/admin.ts, admin-auth.ts, portal-auth.ts, portal-server.ts, validations.ts, schools-server.ts, sanitize.ts, slug.ts
+└── types/index.ts         ← ~40 interfaces, 1 file duy nhất
+supabase/migrations/       ← #1–#10 ✅ applied cloud; #11 (student portal) ❌ CHƯA apply
 scripts/                   ← batch-crawl.ts (crawler thật), scrape-test/ (parser + kiểm chứng), generate-urls.ts
 ```
 

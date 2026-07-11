@@ -239,6 +239,8 @@ export interface LeadRow {
   status: LeadStatus;
   /** Ghi chú chăm sóc — undefined khi cloud chưa chạy migration 20260708000002 */
   note?: string | null;
+  /** SHA-256 mã truy cập Student Portal — undefined khi chưa apply migration #11 */
+  portal_code_hash?: string | null;
   created_at: string;
 }
 
@@ -387,4 +389,61 @@ export interface SchoolFormModalProps {
   onClose: () => void;
   /** Gọi sau khi lưu thành công — parent đóng modal + reload danh sách */
   onSaved: () => void;
+}
+
+// ── Student Portal (v1.12.0 — migration #11) ───────────────────────
+
+/** Loại tài liệu trong Ví số hóa — nguồn chuẩn cho Zod enum + UI options */
+export const DOCUMENT_TYPES = [
+  "passport",
+  "transcript",
+  "ielts_pte",
+  "sop",
+  "lor",
+  "financial",
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  passport: "Hộ chiếu",
+  transcript: "Học bạ / Bảng điểm",
+  ielts_pte: "Chứng chỉ IELTS / PTE",
+  sop: "Bài luận (SOP)",
+  lor: "Thư giới thiệu (LOR)",
+  financial: "Chứng minh tài chính",
+};
+
+export const DOCUMENT_STATUSES = ["pending_review", "approved", "rejected"] as const;
+
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
+  pending_review: "Chờ duyệt",
+  approved: "Đã duyệt",
+  rejected: "Bị từ chối",
+};
+
+/** Bảng student_documents — row Supabase (migration #11), snake_case như LeadActivity. */
+export interface StudentDocument {
+  id: string;
+  lead_id: string;
+  document_type: DocumentType;
+  file_path: string; // path trong bucket student-documents
+  file_name: string; // tên file gốc
+  status: DocumentStatus;
+  notes: string | null; // lý do từ chối / ghi chú admin
+  created_at: string;
+  updated_at: string;
+}
+
+/** Thông tin học sinh hiển thị trong portal — subset an toàn của LeadRow
+ *  (KHÔNG gồm note/source nội bộ CRM). */
+export interface StudentProfile {
+  id: string;
+  full_name: string;
+  phone: string;
+  country_interest: string;
+  status: LeadStatus;
+  created_at: string;
 }

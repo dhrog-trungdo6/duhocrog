@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { STUDY_LEVELS } from "@/types";
+import { DOCUMENT_TYPES, STUDY_LEVELS } from "@/types";
 
 /** Số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx (9–10 số sau đầu số). */
 const VN_PHONE_REGEX = /^(0|\+84)(\d{9,10})$/;
@@ -245,8 +245,65 @@ export const schoolAdmissionRequirementsSchema = z.object({
   notes: z.string().trim().max(1000).optional(),
 });
 
+// ── Student Portal (v1.12.0 — migration #11) ──────────────────────────────
+
+/** Giới hạn file Ví tài liệu số hóa — đồng bộ với bucket student-documents (migration #11). */
+export const PORTAL_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const PORTAL_ACCEPTED_MIME = ["application/pdf", "image/jpeg", "image/png"] as const;
+
+/** POST /api/portal/login — SĐT + mã truy cập do tư vấn viên cấp từ CRM. */
+export const portalLoginSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s.-]/g, ""))
+    .pipe(z.string().regex(VN_PHONE_REGEX, "Số điện thoại không hợp lệ (VD: 0909123456)")),
+  code: z
+    .string()
+    .trim()
+    .min(6, "Mã truy cập tối thiểu 6 ký tự")
+    .max(64, "Mã truy cập không hợp lệ"),
+});
+
+export type PortalLoginValues = z.input<typeof portalLoginSchema>;
+
+/** Client-side: kiểm tra File trước khi xin signed URL (DocumentUploadCard). */
+export const fileUploadSchema = z
+  .custom<File>((v) => v instanceof File, "Vui lòng chọn tệp")
+  .refine((f) => f.size > 0, "Tệp rỗng")
+  .refine((f) => f.size <= PORTAL_MAX_FILE_SIZE, "Tệp tối đa 10MB")
+  .refine(
+    (f) => (PORTAL_ACCEPTED_MIME as readonly string[]).includes(f.type),
+    "Chỉ nhận PDF, JPEG hoặc PNG",
+  );
+
+/** POST /api/portal/documents/upload-url — xin signed upload URL (server validate lại meta). */
+export const documentUploadRequestSchema = z.object({
+  document_type: z.enum(DOCUMENT_TYPES),
+  file_name: z.string().trim().min(1, "Thiếu tên tệp").max(255),
+  file_size: z.number().int().positive().max(PORTAL_MAX_FILE_SIZE, "Tệp tối đa 10MB"),
+  mime_type: z.enum(PORTAL_ACCEPTED_MIME, { error: "Chỉ nhận PDF, JPEG hoặc PNG" }),
+});
+
+/** POST /api/portal/documents — ghi metadata sau khi client upload Storage thành công. */
+export const documentMetaSchema = z.object({
+  document_type: z.enum(DOCUMENT_TYPES),
+  file_name: z.string().trim().min(1).max(255),
+  file_path: z.string().trim().min(1).max(600),
+});
+
+/** PATCH /api/admin/documents/[id] — admin duyệt/từ chối tài liệu. */
+export const documentReviewSchema = z
+  .object({
+    status: z.enum(["pending_review", "approved", "rejected"]),
+    notes: z.string().trim().max(2000, "Ghi chú tối đa 2000 ký tự").optional(),
+  })
+  .refine((d) => d.status !== "rejected" || (d.notes ?? "").length > 0, {
+    message: "Từ chối tài liệu phải kèm lý do trong ghi chú",
+    path: ["notes"],
+  });
+
 // ── Form admin nâng cao — SchoolFormModal 4 tab (v1.10.0, rule 10) ─────────
-// Đặt cuối file vì tham chiếu các schema JSONB phía trên.
 
 /**
  * Mở rộng schoolFormSchema với slug/logo + JSONB (quick_facts, cost_breakdown,
