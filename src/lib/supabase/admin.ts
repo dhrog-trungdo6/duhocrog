@@ -16,5 +16,12 @@ export function getSupabaseAdmin(): SupabaseClient | null {
 
   return createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      // Next.js patch global fetch: mặc định force-cache → response Supabase bị
+      // Data Cache giữ vô thời hạn XUYÊN build (kể cả build cache Vercel), làm
+      // /api/schools + trang ISR đóng băng dữ liệu cũ. no-store = luôn query DB
+      // thật; caching vẫn do route-level `revalidate` (ISR) đảm nhiệm.
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
 }
