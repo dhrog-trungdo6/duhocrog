@@ -149,6 +149,34 @@ export const schoolInputSchema = z.object({
   program_tags: z.array(z.string().trim().min(1).max(50)).max(10).optional(),
 });
 
+// ── Majors — ngành học chuẩn hóa (v1.14.0, migration #13) ─────────────────
+
+/**
+ * Body tạo/sửa ngành học (API admin majors sau này) — khớp bảng majors.
+ * slug bỏ trống → API tự sinh từ name_en bằng slugify (src/lib/slug.ts).
+ */
+export const majorSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug chỉ gồm a-z, 0-9 và dấu gạch ngang")
+    .optional(),
+  name_vi: z.string().trim().min(2, "Tên tiếng Việt tối thiểu 2 ký tự").max(200),
+  name_en: z.string().trim().min(2, "Tên tiếng Anh tối thiểu 2 ký tự").max(200),
+  category: z.string().trim().min(2, "Nhập nhóm ngành (Business, STEM...)").max(100),
+  is_active: z.boolean().optional().default(true),
+});
+
+export type MajorInput = z.input<typeof majorSchema>;
+
+/** Body gán/gỡ ngành cho trường — junction school_majors (PK kép chống trùng). */
+export const schoolMajorLinkSchema = z.object({
+  school_id: z.string().uuid("school_id phải là UUID"),
+  major_id: z.string().uuid("major_id phải là UUID"),
+});
+
 /**
  * GET /api/schools — query params lọc đa chiều (v1.13.0, faceted filtering rule 11).
  * searchParams luôn là string → coerce số + transform tags "a,b" → ["a","b"].

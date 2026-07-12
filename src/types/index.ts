@@ -391,6 +391,29 @@ export interface SchoolRow {
   is_top_school?: boolean | null;
   has_coop?: boolean | null;
   program_tags?: string[] | null;
+  // ── Migration #13 — Ngành học N-N (v1.14.0). CHỈ có khi select embed
+  // PostgREST: .select("*, majors(*)") qua junction school_majors ──
+  majors?: Major[];
+}
+
+// ── Majors — ngành học chuẩn hóa (v1.14.0, migration #13) ──────────
+
+/** Bảng majors — row Supabase (snake_case như LeadActivity/SchoolRow). */
+export interface Major {
+  id: string;
+  slug: string; // 'computer-science' — sinh bằng slugify (src/lib/slug.ts)
+  name_vi: string; // 'Khoa học máy tính'
+  name_en: string; // 'Computer Science'
+  category: string; // nhóm ngành: 'STEM' | 'Business'... — text tự do
+  is_active: boolean;
+  created_at: string;
+}
+
+/** Bảng school_majors — junction N-N trường ↔ ngành (PK kép school_id+major_id). */
+export interface SchoolMajor {
+  school_id: string;
+  major_id: string;
+  created_at: string;
 }
 
 // ── Admin Schools CRUD (v1.9.0) ────────────────────────────────────
