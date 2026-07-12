@@ -284,75 +284,82 @@ Resend  : ❌ chưa dùng
 > Không sửa tay — mọi thay đổi sẽ bị overwrite lần `/handover` tiếp theo.
 > Trigger: khi context > 70% HOẶC khi kết thúc một giai đoạn lập trình lớn.
 
-### Trạng thái Modules (verify 2026-07-11, kiểm tra toàn vẹn full-stack)
+### Trạng thái Modules (verify 2026-07-12, build CLEAN — 1 warning `<img>` ServiceCard cũ)
 
 | Module | Trạng thái | Files chính |
 |--------|-----------|-------------|
 | Homepage (13 sections) | ✅ | src/app/page.tsx |
 | ⭐ SchoolFinder (link chi tiết) | ✅ | src/components/home/SchoolFinder.tsx |
-| EventsTabs | ✅ | src/components/home/EventsTabs.tsx |
-| Lead Capture API | ✅ | src/app/api/leads/route.ts |
-| Admin CRM (Leads/Events/Schools) | ✅ | src/app/admin/ + src/components/admin/ |
-| Admin Auth (RHF login + SHA-256 cookie) | ✅ | src/middleware.ts + src/lib/admin-auth.ts |
-| SchoolFormModal 6 tab v1.11.0 | ✅ | src/components/admin/school-form/ (6 sub-tabs) |
-| Trang chi tiết /truong/[slug] v1.11.0 | ✅ | TOC + Map + CTA + Related (src/app/truong/[slug]/page.tsx) |
-| Dịch vụ Visa / Tìm Trường / Mega Menu | ✅ | v1.4.0 / v1.5.0 / v1.6.0 |
-| Crawler think.edu.vn | ✅ 38/38 | scripts/batch-crawl.ts (⚠️ 35 trường content_sections rỗng) |
-| Supabase schema #1–#10 | ✅ Applied cloud | supabase/migrations/ |
+| EventsTabs | ✅ (bảng events 0 row — chưa tạo sự kiện) | src/components/home/EventsTabs.tsx |
+| Lead Capture API + CRM 2 cột | ✅ | src/app/api/leads/ + src/components/admin/ |
+| Admin Auth (RHF + SHA-256 cookie) | ✅ | src/middleware.ts + src/lib/admin-auth.ts |
+| SchoolFormModal 6 tab (+Program Tags tab 2) | ✅ v1.13.0 | src/components/admin/school-form/ |
+| Trang chi tiết /truong/[slug] | ✅ v1.13.0 (+ProgramTags hero) | src/app/truong/[slug]/page.tsx |
+| 🆕 Student Portal (login + dashboard + Ví tài liệu) | ✅ v1.12.0 — e2e 12/12 | src/app/portal/ + src/components/portal/ + lib/portal-auth·portal-server |
+| 🆕 Program Tags kiểu ApplyBoard | ✅ v1.13.0 (chưa trường nào gắn nhãn — admin bật ở tab 2) | src/components/schools/ProgramTags.tsx |
+| 🆕 /api/schools faceted filtering | ✅ e2e 5/5 | src/app/api/schools/route.ts + schoolQuerySchema |
+| Crawler think.edu.vn FULL | ✅ 1056/1056, 0 lỗi | scripts/batch-crawl.ts (cache gzip batch-output/raw, RESUME=1) |
+| Dữ liệu schools | ✅ 1071 row (1068 active, 3 dup tắt), audit sạch 2026-07-12 | Supabase cloud |
+| Supabase schema #1–#12 | ✅ 12/12 Applied cloud | supabase/migrations/ |
 | Bộ rules 14 skill | ✅ | .claude/rules/01–14 |
 
-### API Routes (verify e2e 2026-07-11)
+### API Routes (verify e2e 2026-07-12)
 
 | Route | Method | Trạng thái | Ghi chú |
 |-------|--------|-----------|---------|
-| /api/leads | POST / GET | ✅ | GET không cookie → 401 |
-| /api/leads/[id] (+/activities) | PATCH / GET / POST | ✅ | |
+| /api/leads (+[id], /activities) | POST/GET/PATCH | ✅ | GET không cookie → 401 |
 | /api/events | GET | ✅ | public |
-| /api/schools | GET | ✅ | public — đã fix Data Cache (fetch no-store) |
-| /api/admin/login · logout | POST | ✅ | login sai → 401, Zod rỗng → 400 |
-| /api/admin/events (+[id]) | CRUD | ✅ | |
-| /api/admin/schools (+[id]) | CRUD + seed | ✅ | PATCH partial (form 6 tab) |
+| /api/schools | GET | ✅ | public, faceted: ?country/province/level/min·max_tuition/min_scholarship/search/tags= ; phân trang lặp cap 1000; force-dynamic |
+| /api/admin/login · logout · events · schools | POST/CRUD | ✅ | |
+| /api/portal/login · logout | POST | ✅ | SĐT + mã truy cập |
+| /api/portal/documents (+/upload-url) | GET/POST | ✅ | signed upload → metadata → log CRM |
+| /api/admin/portal/code | POST | ✅ | cấp mã, trả plaintext 1 lần |
+| /api/admin/documents/[id] | PATCH | ✅ | duyệt/từ chối (rejected cần notes) |
 
 ### Hạ tầng & Tích hợp
 
 ```
-GitHub  : main = origin/main ✅ (85f226b)
+GitHub  : main = origin/main ✅ (af0cab0)
 Vercel  : linked, auto-deploy từ main ✅
-Supabase: 10/10 migrations applied; 57 schools (57 active, 0 slug null/trùng); RLS chuẩn (anon không đọc leads/inactive)
+Supabase: 12/12 migrations applied; 1071 schools (1068 active, 0 slug null/trùng, 0 country rỗng,
+          0 tuition outlier); leads 0 row (đã xóa lead test); events 0 row; RLS chuẩn verify 2026-07-12
 Env     : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, VERCEL_OIDC_TOKEN, ADMIN_PASSWORD
 Resend  : ❌ chưa dùng
 ```
 
 ### Data Contract thay đổi gần nhất
 
-- v1.9.0–v1.11.0: SchoolFormModalProps; SchoolRow + official_rss_url/auto_sync_enabled (#9) + show_cta/related_slugs (#10); School + showCta/relatedSlugs; schoolFormSchema, schoolEditFormSchema + SchoolEditFormValues (validations)
-- ⚠️ getSupabaseAdmin dùng fetch `cache: "no-store"` (fix Data Cache đóng băng xuyên build) — KHÔNG gỡ
+- v1.12.0 (Portal): DOCUMENT_TYPES/StudentDocument/StudentProfile; LeadRow +portal_code_hash?; Zod portalLoginSchema/fileUploadSchema/documentUploadRequestSchema/documentMetaSchema/documentReviewSchema
+- v1.13.0 (Tags): School +isHighDemand?/noVisaCap?/isTopSchool?/hasCoop?/programTags?; SchoolRow bản snake (optional); schoolQuerySchema (query /api/schools); schoolEditFormSchema +5 field tags
+- ⚠️ getSupabaseAdmin fetch `cache: "no-store"` — KHÔNG gỡ; auth 2 công thức SHA-256 (admin + student) sửa 1 nơi phải sửa cả middleware lẫn lib
 
 ### Nguyên tắc bất biến — trạng thái
 
-- [x] 1–8 đều đang tuân thủ (kiểm tra 2026-07-11: mọi form RHF+Zod, API unknown+safeParse, ErrorBoundary giữ nguyên, brand info chỉ ở site.ts, mock ở src/data)
+- [x] 1–8 tuân thủ (verify 2026-07-12; lưu ý: middleware chỉ che PAGES — mọi /api/admin/* tự gọi isAdminRequest(), /api/portal/* tự gọi getStudentLeadId())
 
 ### Vấn đề đang mở
 
-- [ ] **Coverage parser crawler**: 35/38 trường có content_sections rỗng NHƯNG đã public (user bật active cả 57) → trang chi tiết mỏng — ưu tiên cao
-- [ ] Lead test trong bảng leads (1 row "TEST Claude production - xoá sau") — xóa tay Dashboard
-- [ ] `src/config/site.ts` placeholder toàn bộ + ảnh thật thay placeholder
-- [ ] Resend email notification (rule 08 đã có pattern, chưa implement)
-- [ ] `scripts/crawler.ts` cũ (selectors giả định) — đã bị batch-crawl.ts thay thế, cân nhắc dọn
+- [ ] **Admin UI portal**: chưa có nút cấp mã + duyệt tài liệu trong LeadsTab (API sẵn: /api/admin/portal/code, /api/admin/documents/[id])
+- [ ] UI /tim-truong chưa nối filter server (?tags=, min_scholarship...) — đang lọc client
+- [ ] Chưa trường nào gắn Program Tags — admin bật ở SchoolFormModal tab 2
+- [ ] `src/config/site.ts` placeholder toàn bộ + ảnh placeholder; events 0 row
+- [ ] Chấp nhận được: 10 agency không country/province đơn; 14 trường tuition=0; 17 trường content rỗng (15 seed không có trên think + 2 stub rỗng tại nguồn)
+- [ ] Resend (rule 08) + scripts/crawler.ts cũ cân nhắc dọn
 
 ### Next Steps (3 việc làm ngay khi mở phiên mới)
 
-1. **Fix coverage parser + crawl lại** — 35 trường đã public nhưng nội dung rỗng; tinh chỉnh selector scripts/scrape-test/parsers.ts (thử nhiều layout think.edu.vn), crawl lại theo rule 14 (upsert 1 bước, không đè cột Admin)
-2. **Điền thông tin thương hiệu** src/config/site.ts + ảnh thật — site đang public dữ liệu thật mà hotline/email còn placeholder
-3. **Xóa lead test** trên Supabase Dashboard (`delete from leads where full_name = 'TEST Claude production - xoá sau'`)
+1. **Admin UI portal trong LeadsTab** — nút "Cấp mã Portal" (hiện mã 1 lần) + danh sách tài liệu học sinh với nút Duyệt/Từ chối; API đã sẵn và e2e pass, chỉ thiếu UI
+2. **Nối UI /tim-truong vào faceted API** — checkbox 4 tag + slider học bổng đẩy query string (?tags=high_demand...), tận dụng index vật lý thay lọc client 1068 trường
+3. **Điền thông tin thương hiệu** src/config/site.ts + ảnh thật + tạo 1–2 events — site public 1068 trường thật mà hotline/email còn placeholder
 
 ### Change Log
 
 | Ngày | Giai đoạn | Thay đổi |
 |------|-----------|---------|
+| 2026-07-12 | #18 — Crawl full + Portal + Tags + faceted API + audit data | Crawl 1056/1056 trường (admin-ajax v3, cache gzip + RESUME); Student Portal v1.12.0 (migration #11, auth cookie student, signed upload, e2e 12/12, fix 2 lỗ hổng thiếu isAdminRequest code Cline); Program Tags v1.13.0 (migration #12, ProgramTags component, admin tab 2); /api/schools faceted filtering + phân trang cap 1000 + force-dynamic; bật public 1071 trường; audit + fix data: tắt 3 row trùng (eckerd=Drew dup từ nguồn), fix 26 country/province (parse h1 cache + SG), re-parse agricultural, xóa lead test, tuition outlier THB→0 |
 | 2026-07-11 | #17 — Toàn vẹn + fix Data Cache + rules 13-14 + handover | Kiểm tra toàn vẹn full-stack (git/build/rules/migrations/RLS/e2e đều pass); phát hiện + fix Next Data Cache đóng băng response Supabase xuyên build (getSupabaseAdmin fetch no-store, /api/schools 22→57); rules 13 (AI scraping structured outputs) + 14 (idempotent upsert); user duyệt xong 57/57 trường active; handover |
 | 2026-07-11 | #16 — Form 6 tab + CTA/Related v1.11.0 | Migration #10 (show_cta + related_slugs — CHƯA apply); SchoolFormModal 6 tab: +Vị trí & Bản đồ (map input + preview iframe sandbox live) +Liên kết & CTA (toggle show_cta, textarea related slugs mỗi dòng 1); slug tự sinh client từ tên khi tạo mới (dừng khi admin gõ tay); trang chi tiết: CtaBox "Vì sao chọn ROG?" (src/data/ctaBox.ts, ẩn khi show_cta=false) + RelatedSchoolsSection (fetchSchoolsBySlugs giữ thứ tự); từ chối multi-select bậc học (level là cột lọc vật lý + composite index — đổi sang mảng cần thiết kế riêng) |
-| 2026-07-11 | #15 — TOC + Map + rule 11 | Rule 11 (AI Agent & RAG Readiness: plain_text_summary, faceted filtering cột phẳng); Trang /truong/[slug]: TableOfContents (details gập/mở, anchor + scroll-mt-24 mọi section, ≥3 mục mới hiện) + MapSection (iframe map_embed_url, guard https) ; Form Tab Tổng quan thêm website_url + map_embed_url (refine http(s)); verify e2e Ball State: TOC 16+ anchor nội dung, chi-phi/dieu-kien, tuition DB 27,496 đè mock | 
+| 2026-07-11 | #15 — TOC + Map + rule 11 | Rule 11 (AI Agent & RAG Readiness: plain_text_summary, faceted filtering cột phẳng); Trang /truong/[slug]: TableOfContents (details gập/mở, anchor + scroll-mt-24 mọi section, ≥3 mục mới hiện) + MapSection (iframe map_embed_url, guard https) ; Form Tab Tổng quan thêm website_url + map_embed_url (refine http(s)); verify e2e Ball State: TOC 16+ anchor nội dung, chi-phi/dieu-kien, tuition DB 27,496 đè mock |
 | 2026-07-11 | #14 — Advanced School Form v1.10.0 + rules 07–10 | 4 rule mới (webhook n8n, notifications, event-driven, content enrichment); Migration #9 (official_rss_url + auto_sync_enabled — CHƯA apply); SchoolFormModal 4 tab: BasicInfo/QuickFactsCost/ContentBuilder/Automation (school-form/, mỗi file <300 dòng); Content Builder useFieldArray html·list·table (bảng có thêm/xóa hàng-cột, rename header remap key); schoolEditFormSchema + fix tableRowSchema annotation (z.input unknown vỡ zodResolver); payload null-safe cột #9 |
 | 2026-07-11 | #13 — Admin Schools CRUD v1.9.0 + login RHF | Login page chuyển react-hook-form + zodResolver (tái dùng adminLoginSchema, tuân thủ Nguyên tắc #5); SchoolsTab viết lại: search bar, nút Thêm trường mới, cột Tỉnh/Bang + Hành động (Sửa), SchoolFormModal mới (overlay Tailwind thuần, RHF + zodResolver, schoolFormSchema tiếng Việt, option fallback country/province từ crawler); PATCH sửa trường qua modal; giữ toggle is_active = soft delete (rule 04, không xóa cứng); verify e2e auth 5/5 + schema test |
 | 2026-07-10 | #12 — Crawl thật 38/38 + Migration #8 | Chẩn đoán lỗi 400 batch crawl: KHÔNG phải think.edu.vn (trả 200) mà là PostgREST `on_conflict=slug` không suy ra được partial index → viết migration #8 (unique constraint thường, CHƯA apply); `batch-crawl.ts` chuyển upsert 2 bước GET→PATCH/POST + nhánh UPDATE không đè cột phá seed (`is_active`/`logo_url`/`image_url`/basics rỗng) + `level` ưu tiên `entry.levels` từ urls.json; chạy crawl 38/38 OK (35 insert inactive, 3 update enrich); khôi phục 3 row seed bị lần chạy đầu deactivate + xóa logo (verify 22 active) |
