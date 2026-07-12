@@ -186,6 +186,7 @@ export const schoolQuerySchema = z.object({
   country: z.string().trim().max(50).optional(),
   province: z.string().trim().max(100).optional(),
   level: z.enum(STUDY_LEVELS).optional(),
+  major: z.string().trim().max(200).optional(), // slug ngành (migration #13, N-N qua school_majors)
   min_tuition: z.coerce.number().nonnegative().default(0),
   max_tuition: z.coerce.number().nonnegative().optional(), // không default — thiếu = không chặn trên
   min_scholarship: z.coerce.number().nonnegative().default(0),

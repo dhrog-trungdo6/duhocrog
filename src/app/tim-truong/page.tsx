@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, GraduationCap, Percent, SearchX } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { School, FilterOption, ProvinceFilterOption, FilterState } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { destinations, provinces } from "@/data/destinations";
@@ -14,6 +14,7 @@ import {
   searchSchools,
 } from "@/lib/schools";
 import { useSchools } from "@/hooks/useSchools";
+import { useMajors } from "@/hooks/useMajors";
 import SchoolFilter from "@/components/schools/SchoolFilter";
 import { ProgramTags } from "@/components/schools/ProgramTags";
 
@@ -31,18 +32,25 @@ const provinceOptions: ProvinceFilterOption[] = provinces.map((p) => ({
 
 function TimTruongContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialCountry = searchParams.get("country") ?? "";
+  const initialMajor = searchParams.get("major") ?? "";
 
-  const schools = useSchools();
   const [results, setResults] = useState<School[] | null>(null);
   const [lastFilter, setLastFilter] = useState<FilterState>({
     country: initialCountry,
     province: "",
     level: "",
     tuitionRange: [0, 60000],
+    major: initialMajor,
   });
 
-  // Tìm kiếm khi schools sẵn sàng/đổi nguồn (mock → Supabase) — mặc định hiện tất cả hoặc theo ?country=
+  // Ngành (N-N) lọc server-side → đẩy vào query; 4 tiêu chí còn lại lọc client bên dưới
+  const majorQuery = lastFilter.major ? `major=${encodeURIComponent(lastFilter.major)}` : "";
+  const schools = useSchools(majorQuery);
+  const majors = useMajors();
+
+  // Chạy lại khi nguồn schools đổi: mock→DB, hoặc đổi ngành → fetch server trả tập mới
   useEffect(() => {
     setResults(searchSchools(schools, lastFilter));
   }, [schools]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -51,8 +59,14 @@ function TimTruongContent() {
     (filters: FilterState) => {
       setLastFilter(filters);
       setResults(searchSchools(schools, filters));
+      // Đồng bộ URL (?country=&major=) — không reload, giữ link chia sẻ được
+      const params = new URLSearchParams();
+      if (filters.country) params.set("country", filters.country);
+      if (filters.major) params.set("major", filters.major);
+      const qs = params.toString();
+      router.replace(qs ? `/tim-truong?${qs}` : "/tim-truong", { scroll: false });
     },
-    [schools],
+    [schools, router],
   );
 
   const countryNameFromFilter = destinations.find((d) => d.code === lastFilter.country)?.name;
@@ -86,6 +100,8 @@ function TimTruongContent() {
             onSearch={handleSearch}
             countries={countryOptions}
             provinces={provinceOptions}
+            majors={majors}
+            major={initialMajor}
           />
         </div>
       </div>

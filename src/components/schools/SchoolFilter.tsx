@@ -18,6 +18,7 @@ import { Search } from "lucide-react";
 import type { FilterState, SchoolFilterProps } from "@/types";
 import { STUDY_LEVEL_LABELS } from "@/types";
 import { formatUsd } from "@/lib/schools";
+import { groupMajorsByCategory } from "@/hooks/useMajors";
 
 const TUITION_MIN = 0;
 const TUITION_MAX = 60000;
@@ -57,13 +58,20 @@ function SelectChevron() {
   );
 }
 
-export default function SchoolFilter({ onSearch, countries, provinces }: SchoolFilterProps) {
+export default function SchoolFilter({
+  onSearch,
+  countries,
+  provinces,
+  majors = [],
+  major = "",
+}: SchoolFilterProps) {
   // Local state — chỉ đẩy lên cha khi bấm "Tìm trường"
   const [filters, setFilters] = useState<FilterState>({
     country: "",
     province: "",
     level: "",
     tuitionRange: [TUITION_MIN, TUITION_MAX],
+    major, // khởi tạo từ URL ?major= (page truyền xuống)
   });
 
   // Cascading: derive danh sách tỉnh bang theo quốc gia đang chọn (không lưu state thừa)
@@ -94,8 +102,8 @@ export default function SchoolFilter({ onSearch, countries, provinces }: SchoolF
       </div>
 
       <div className="relative z-10 mx-auto max-w-5xl">
-        {/* ── Hàng 1: 3 dropdown — 1 cột mobile, 3 cột desktop ─────────────── */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* ── Hàng 1: 4 dropdown — 1 cột mobile, 2 cột tablet, 4 cột desktop ── */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Quốc gia */}
           <div className="relative">
             <label htmlFor="filter-country" className="mb-1.5 block text-sm font-medium text-white">
@@ -166,6 +174,33 @@ export default function SchoolFilter({ onSearch, countries, provinces }: SchoolF
                   <option key={l.value} value={l.value}>
                     {l.label}
                   </option>
+                ))}
+              </select>
+              <SelectChevron />
+            </div>
+          </div>
+
+          {/* Ngành học — optgroup theo nhóm (majors do page truyền, migration #13) */}
+          <div className="relative">
+            <label htmlFor="filter-major" className="mb-1.5 block text-sm font-medium text-white">
+              Ngành học
+            </label>
+            <div className="relative">
+              <select
+                id="filter-major"
+                value={filters.major ?? ""}
+                onChange={(e) => setFilters((prev) => ({ ...prev, major: e.target.value }))}
+                className={selectClassName}
+              >
+                <option value="">Tất cả ngành học</option>
+                {groupMajorsByCategory(majors).map(([category, list]) => (
+                  <optgroup key={category} label={category}>
+                    {list.map((m) => (
+                      <option key={m.slug} value={m.slug}>
+                        {m.name_vi}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <SelectChevron />

@@ -299,12 +299,18 @@ export interface FilterState {
   province: string;
   level: string;
   tuitionRange: [number, number];
+  /** slug ngành học (migration #13) — "" hoặc undefined = tất cả ngành; lọc server-side */
+  major?: string;
 }
 
 export interface SchoolFilterProps {
   onSearch: (filters: FilterState) => void;
   countries: FilterOption[];
   provinces: ProvinceFilterOption[];
+  /** Danh mục ngành đổ vào dropdown — page truyền xuống (giữ SchoolFilter thuần, không fetch) */
+  majors?: Major[];
+  /** major slug khởi tạo, đồng bộ từ URL ?major= */
+  major?: string;
 }
 
 // ── Services / Visa ─────────────────────────────────────────────────

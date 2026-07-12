@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { GraduationCap, Percent, Search, SearchX } from "lucide-react";
 import type { School, StudyLevel } from "@/types";
@@ -13,6 +13,7 @@ import {
   searchSchools,
 } from "@/lib/schools";
 import { useSchools } from "@/hooks/useSchools";
+import { useMajors, groupMajorsByCategory } from "@/hooks/useMajors";
 import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
 
@@ -35,18 +36,30 @@ export function SchoolFinder() {
   const [country, setCountry] = useState("");
   const [province, setProvince] = useState("");
   const [level, setLevel] = useState<StudyLevel | "">("");
+  const [major, setMajor] = useState("");
   const [tuitionRange, setTuitionRange] = useState<[number, number]>([
     TUITION_MIN,
     TUITION_MAX,
   ]);
   const [results, setResults] = useState<School[] | null>(null);
-  const schools = useSchools();
+
+  // Ngành (N-N) phải lọc server-side → đẩy vào query; 4 tiêu chí còn lại lọc client bên dưới
+  const majorQuery = major ? `major=${encodeURIComponent(major)}` : "";
+  const schools = useSchools(majorQuery);
+  const majors = useMajors();
 
   // Cascading select: chỉ derive tỉnh bang của quốc gia đang chọn
   const provinceOptions = useMemo(
     () => provinces.filter((p) => p.countryCode === country),
     [country]
   );
+
+  // Khi nguồn schools đổi (mock→DB, hoặc đổi ngành → fetch lại) mà đã bấm tìm: lọc lại
+  useEffect(() => {
+    setResults((prev) =>
+      prev === null ? null : searchSchools(schools, { country, province, level, tuitionRange })
+    );
+  }, [schools]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCountryChange = (value: string) => {
     setCountry(value);
@@ -71,7 +84,7 @@ export function SchoolFinder() {
           Chọn quốc gia, thành phố, bậc học và ngân sách — ROG gợi ý trường tối ưu học bổng cho bạn.
         </p>
 
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <label htmlFor="finder-country" className="mb-1.5 block text-sm font-semibold">
               Quốc gia
@@ -128,6 +141,29 @@ export function SchoolFinder() {
                 <option key={value} value={value}>
                   {label}
                 </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="finder-major" className="mb-1.5 block text-sm font-semibold">
+              Ngành học
+            </label>
+            <select
+              id="finder-major"
+              className={selectClasses}
+              value={major}
+              onChange={(e) => setMajor(e.target.value)}
+            >
+              <option value="">— Tất cả ngành học —</option>
+              {groupMajorsByCategory(majors).map(([category, list]) => (
+                <optgroup key={category} label={category}>
+                  {list.map((m) => (
+                    <option key={m.slug} value={m.slug}>
+                      {m.name_vi}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

@@ -50,11 +50,15 @@ function buildQuery(
   from: number,
   to: number,
 ) {
-  let query = supabase.from("schools").select(columns).eq("is_active", true);
+  // Lọc theo ngành (N-N migration #13): embed junction với !inner để CHỈ giữ trường
+  // có ngành đó. Embed (không phải flat join) → mỗi trường trả về 1 lần, KHÔNG duplicate.
+  const select = filters.major ? `${columns}, majors!inner(slug)` : columns;
+  let query = supabase.from("schools").select(select).eq("is_active", true);
 
   if (filters.country) query = query.eq("country", filters.country);
   if (filters.province) query = query.eq("province", filters.province);
   if (filters.level) query = query.eq("level", filters.level);
+  if (filters.major) query = query.eq("majors.slug", filters.major);
   if (filters.min_tuition > 0) query = query.gte("tuition_usd", filters.min_tuition);
   if (filters.max_tuition !== undefined) query = query.lte("tuition_usd", filters.max_tuition);
   if (filters.min_scholarship > 0) {

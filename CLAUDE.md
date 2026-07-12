@@ -173,8 +173,12 @@ v1.13.0: Program Tags (migration #12) — School +isHighDemand?/noVisaCap?/isTop
          component ProgramTags (schools/) render card /tim-truong + hero /truong/[slug];
          /api/schools phân trang lặp (PostgREST cap 1000) + fallback 42703 khi thiếu cột
 v1.14.0: Majors N-N (migration #13) — Major, SchoolMajor (row snake_case);
-         SchoolRow +majors? (CHỈ có khi select embed "*, majors(*)");
+         SchoolRow +majors? (CHỉ có khi select embed "*, majors(*)");
          Zod: majorSchema (+MajorInput), schoolMajorLinkSchema
+v1.14.1: Tìm trường theo ngành — FilterState +major?, SchoolFilterProps +majors?/+major?;
+         schoolQuerySchema +major; /api/schools embed majors!inner(slug) + eq (không dup);
+         /api/majors (public, force-dynamic); hook useMajors + groupMajorsByCategory;
+         useSchools(query) — có query lọc thì KHÔNG fallback mock khi rỗng
 ```
 
 ---
@@ -220,7 +224,8 @@ Tin tức → #news
 | `/api/leads/[id]` | PATCH | ✅ v1.2.0 |
 | `/api/leads/[id]/activities` | GET/POST | ✅ v1.0.0 |
 | `/api/events` | GET | ✅ v1.0.0 |
-| `/api/schools` | GET | ✅ v1.0.0 |
+| `/api/schools` | GET | ✅ v1.13.0 — faceted +`?major=` (embed majors!inner, migration #13) |
+| `/api/majors` | GET | ✅ v1.14.1 — public danh mục ngành active (force-dynamic) |
 | `/api/admin/login` | POST | ✅ v1.0.0 |
 | `/api/admin/logout` | POST | ✅ v1.0.0 |
 | `/api/admin/events` (+[id]) | CRUD | ✅ v1.0.0 |
